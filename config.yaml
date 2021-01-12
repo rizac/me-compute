@@ -1,0 +1,16 @@
+# YAML configuration to be used in the Me cmputation
+
+# Download configs to be used (one config per download)
+# The database URL will be fetched from the first file (it should be always the same in any case)
+DOWNLOAD_CONFIGS:
+  - /home/me/medb/download/download.eida.yaml
+  - /home/me/medb/download/download.iris.yaml
+
+# processing config to be used in the PROCESSING_MODULE below
+PROCESSING_CONFIG: /home/me/medb/processing/medaily.yaml
+
+# processing module to process new downloaded data:
+PROCESSING_MODULE: /home/me/medb/processing/medaily.py
+
+# output directory
+OUTPUT_DIRECTORY: /home/me/medb/medaily
