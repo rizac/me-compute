@@ -1,0 +1,13 @@
+# YAML configuration example file for Me computation.
+# Copy this file into "mecompute.yaml" (in the same directory) and set the
+# program parameters below.
+# IMPORTANT: the copied file ("config/mecompute.yaml") is ignored by git since
+# it is supposed to contain sensitive information (e.g. passwords in `dburl`)
+
+download:
+  # The database URL for s2s (can be also on a remote machine), will replace
+  # the corresponding oparameter in the download config
+  dburl: 'postgresql://me:<password>@localhost/me_06_2020'
+
+# The output directory for the computed tabular (HDF, CSV) and report (HTML) files:
+output_dir: '/home/me/medb/me_computed'
