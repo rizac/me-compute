@@ -429,6 +429,7 @@ advanced_settings:
     # at most 10 ASCII characters in 'col1' and 20 in 'col2', then:
     min_itemsize:
       channel: 3
+      location: 2
       ev_mty: 2
       st_net: 2
       st_name: 5
