@@ -612,12 +612,13 @@ def main(segment, config):
     ret = {}
 
     ret['snr'] = snr_
-    ret['aascore']: aascore
+    ret['aascore'] = aascore
     ret['satu'] = flag_ratio
     ret['dist_deg'] = distance_deg      # dist
     ret['s_r'] = trace.stats.sampling_rate
     ret['me_st'] = me_st
     ret['channel'] = segment.channel.channel
+    ret['location'] = segment.channel.location
     ret['ev_id'] = segment.event.id           # event metadata
     ret['ev_time'] = segment.event.time
     ret['ev_lat'] = segment.event.latitude
