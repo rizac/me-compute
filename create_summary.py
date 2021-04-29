@@ -126,7 +126,7 @@ def create_summary(hdf_path):
 
 
 def create_html(hdf_path):
-
+    pass
 
 class Weighter:
     # these are the min score and max score of the currently selected model

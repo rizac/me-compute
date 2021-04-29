@@ -6,8 +6,8 @@
 
 download:
   # The database URL for s2s (can be also on a remote machine), will replace
-  # the corresponding oparameter in the download config
+  # the corresponding parameter in the download config
   dburl: 'postgresql://me:<password>@localhost/me_06_2020'
 
-# The output directory for the computed tabular (HDF, CSV) and report (HTML) files:
-output_dir: '/home/me/medb/me_computed'
+# The destination directory for the computed tabular (HDF, CSV) and report (HTML) files:
+destidir: '/home/me/medb/me_computed'

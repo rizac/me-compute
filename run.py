@@ -2,7 +2,8 @@
 import json
 import sys
 from datetime import datetime, timedelta
-from os.path import join, dirname, abspath, splitext, basename, isabs, isfile, isdir
+from os.path import join, dirname, abspath, splitext, basename, isabs, isfile, isdir, \
+    relpath
 
 import click
 
@@ -24,19 +25,20 @@ from stream2segment.process.db import get_session
 #   +- medaily_data -> the output directory of this data (after running s2s above)
 
 # now defined those paths here:
+from stream2segment.utils.inputargs import valid_date
+
 from create_summary import create_summary
 
 
-PWD = dirname(__file__)  # `medaily` above
-ROOT = dirname(PWD)  # root dir
-DOWNLOAD_PATH = abspath(join(ROOT, "download", "download.eida.yaml"))
-PROCESS_CONFIG_PATH = abspath(join(ROOT, "processing", "medaily.yaml"))
-PROCESS_PATH = abspath(join(ROOT, "processing", "medaily.py"))
-OUT_DIR = abspath(join(ROOT, "mecompute_daily"))
+ROOT = abspath(relpath(dirname(relpath(__file__))))  # `medaily` above
+S2S_CONFIG_PATH = dirname(ROOT, 's2s_config')  # root dir
+S2S_DOWNLOAD_CONFIG_PATH = abspath(join(S2S_CONFIG_PATH, "download.yaml"))
+S2S_PROCESS_MODULE_PATH = abspath(join(S2S_CONFIG_PATH, "process.py"))
+S2S_PROCESS_CONFIG_PATH = abspath(join(S2S_CONFIG_PATH, "process.yaml"))
 
 
-configfilenames = ['download.yaml', 'process.yaml', 'process.py', 'mecompute.yaml']
-
+assert (isfile(_) for _ in [S2S_DOWNLOAD_CONFIG_PATH, S2S_PROCESS_MODULE_PATH,
+                            S2S_PROCESS_CONFIG_PATH])
 
 # As side note, here the two s2s command lines examples (we will call them here
 # but skipping command line step):
@@ -45,23 +47,6 @@ configfilenames = ['download.yaml', 'process.yaml', 'process.py', 'mecompute.yam
 
 
 # private methods (see meprocess below)
-
-def _check_config(configdir):
-    """Checks the config directory and returns the absolute path of each file
-     defined in the global variable `configfilenames`
-
-    raise `ValueError` if anything is wrong (e.g., file do not exist)
-    """
-    if not isdir(configdir):
-        raise ValueError('Config directory "%s" does not exist' % configdir)
-
-    ret = []
-    for filename in configfilenames:
-        fle = join(configdir, filename)
-        if not isfile(fle):
-            raise ValueError('"%s" not found in %s' % (filename, configdir))
-        ret.append(fle)
-    return ret
 
 
 def _yaml_load(filepath):
@@ -73,36 +58,17 @@ def _yaml_load(filepath):
                          (str(basename(filepath)), str(exc)))
 
 
-def _download(dconf_path, dburl, dataselect_urls_list):
-    dconf_dict = _yaml_load(dconf_path)
-
+def _get_last_event_datetime(dburl):
     sess = None
     date_max = None
     try:
         sess = get_session(dburl)
         # session.query(func.max(Table.column))
         # filter_expr = Event.time == func.max(Event.time)
-        date_max = sess.query(func.max(Event.time)).scalar()
+        return sess.query(func.max(Event.time)).scalar()
     finally:
         if sess is not None:
             sess.close()
-
-    oneday = timedelta(days=1)
-
-    # set start as date_max at 24h:00m:00s:
-    start = date_max.replace(hour=0, minute=0, second=0, microsecond=0) + oneday
-    # set start as today at 00h:00m:00s:
-    end = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-
-    ret = 0
-    for dataws in dataselect_urls_list:
-        ret = download(config=dconf_dict, start=start, end=end, dburl=dburl,
-                       dataws=dataws)
-        if ret !=0:
-            print('Error downloading data, skipping')
-            return ret
-
-    return start, end
 
 
 def _create_summary(hdf_path):
@@ -120,42 +86,51 @@ def _create_summary(hdf_path):
 
 # click is a package for building command line applications via the 'command' decorator:
 # (https://click.palletsprojects.com/en/7.x/quickstart/#basic-concepts-creating-a-command)
-@click.option('dburl', required=True, type=str,
-              help='The database URL, e.g.: '
-                   'postgresql://me:<password>@localhost/me_06_2020')
+@click.option('-c', '--configpath',
+              default=abspath(relpath(join(dirname(__file__), 'config'))),
+              type=click.Path(exists=True, file_okay=True, readable=True, dir_okay=False),
+              show_default=True,
+              help='the YAML configuration file')
 @click.command()
-def run(config):
-
+def run(configpath):
+    P_DESTDIR = 'destdir'
     try:
-        dconf_path, pconf_path, pmodule_path, globalconf_path = _check_config(config)
-        global_conf = _yaml_load(globalconf_path)
-        dest_root = global_conf['output_dir']
-        if not isdir(dest_root):
-            raise ValueError('Output directory "%s" does not exist. '
-                             'Check typos in parameter "output_dir" (file %s)' %
-                             (dest_root, globalconf_path))
-        dburl = global_conf['download']['dburl']
+        config = _yaml_load(configpath)
+        dburl, destdir = config['download']['dbrul'], config[P_DESTDIR]
+        if not isdir(destdir):
+            raise ValueError('Not a directory: %s.\nCheck % in %s' %
+                             (destdir, P_DESTDIR, configpath))
 
-        start, end = _download(dconf_path, **global_conf['download'])
+        d_config = _yaml_load(S2S_DOWNLOAD_CONFIG_PATH)
+        # start and end will be parsed here and not in `download` because
+        # we need them to process
+        start = valid_date(d_config['startime'])
+        end = valid_date(d_config['endtime'])
+        ret = download(config=d_config, dburl=dburl, starttime=start,
+                       endtime=end)
+        if ret != 0:
+            raise ValueError('Error downloading data, skipping')
+
         start_iso = start.isoformat(sep='T')
         end_iso = end.isoformat(sep='T')
         destdir_name = "%s_to_%s" % (start_iso, end_iso)
-        dest_dir = join(dest_root, destdir_name)
+        dest_dir = join(destdir, destdir_name)
         dest_file = join(dest_dir, 'process.hdf')
 
         ret = process(dburl,
-                      config=pconf_path,
-                      pyfile=pmodule_path,
+                      config=S2S_PROCESS_CONFIG_PATH,
+                      pyfile=S2S_PROCESS_MODULE_PATH,
+                      log2file=dest_file+".log",
                       outfile=dest_file,
                       # update the parameter "segment_select" in config file
                       # (process only newly downloaded segments):
                       segment_select={'event.time': '[%s, %s]' %
                                                     (start_iso, end_iso)})
 
-        if ret != 0:
+        if ret != 0 or not isfile(dest_file):
             raise ValueError('Error processing data, skipping')
 
-        _create_summary(outfile)
+        _create_summary(dest_file)
 
     except ValueError as exc:
         print('ERROR: %s' % str(exc))
