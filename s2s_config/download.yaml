@@ -15,8 +15,8 @@ dataws:
   - eida
   - iris
 dburl: postgresql://me:***@localhost/me_06_2020
-starttime: 2020-06-04T00:00:00
-endtime: 0
+starttime: 0
+endtime: -1
 eventws: http://geofon.gfz-potsdam.de/fdsnws/event/1/query
 eventws_params: null
 inventory: true
