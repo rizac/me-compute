@@ -309,7 +309,11 @@ def main(segment, config):
     assert sorted(frequencies) == frequencies
 
     # calculate spectra with spline interpolation on given frequencies:
-    cs = CubicSpline(normal_freqs, normal_spe)
+    try:
+        cs = CubicSpline(normal_freqs, normal_spe)
+    except ValueError as verr:
+        raise SkipSegment('Error in CubicSpline: %s' % str(verr))
+
     seg_spectrum = cs(frequencies)
 
     seg_spectrum_log10 = np.log10(seg_spectrum)
