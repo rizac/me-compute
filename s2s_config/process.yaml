@@ -242,9 +242,6 @@ freq_dist_table:
 advanced_settings:
   # Use parallel sub-processes to speed up the execution.
   multi_process: true
-  # The number of sub-processes. If null, it is set as the the number of CPUs in the
-  # system. This option is ignored if multi_process is false
-  num_processes: null
   # Although each segment is processed one at a time, loading segments in chunks from the
   # database is faster: the number below defines the chunk size. If multi_process is true,
   # the chunk size also defines how many segments will be loaded in each python sub-process.

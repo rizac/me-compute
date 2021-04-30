@@ -5,4 +5,4 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # activate virtualenv
 source "$SCRIPT_DIR/.env/$VENV/bin/activate"
 # start download
-s2s download -c "$SCRIPT_DIR/s2s_config/download.private.yaml"
+python -c "$SCRIPT_DIR/s2s_config/download.private.yaml"

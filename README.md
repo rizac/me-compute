@@ -23,12 +23,21 @@ and set the db url
 
 ### Download:
 
-activate virtualenv.
-
-From the repo directory
 
 ```
-s2s download ./download.private.yaml
+<VENV_PATH>/bin/python <S2S_REPO>/stream2segment/cli.py download -c <MECOMPUTE_REPO>/s2s_config/download.private.yaml
+```
+
+Example:
+
+```
+/home/me/mecompute/mecompute/.env/py3.6.9/bin/pytho /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
+```
+
+
+
+```
+/home/me/mecompute/mecompute/.env/py3.6.9/bin/pytho /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
 ```
 
 If you want to run a cronjob, edit download.sh (modify venv name)
