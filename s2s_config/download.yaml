@@ -1,36 +1,33 @@
-# ==========================================================
-# stream2segment config file to tune the download subroutine
-# ==========================================================
+# =======================================================
+# Stream2segment config file to tune the download routine
+# =======================================================
 
-# NOTE: **this file is written in YAML syntax**, which uses Python-style indentation to
-# indicate nesting, keep it in mind when editing. You can also use a more compact format that
-# uses [] for lists and {} for maps/objects.
-# For info see http://docs.ansible.com/ansible/latest/YAMLSyntax.html
+# NOTE: This file is written in YAML syntax, which uses Python-style indentation to
+# indicate nesting, keep it in mind when editing. You can also use a more compact format
+# that uses [] for lists and {} for maps/objects. For info see:
+# http://docs.ansible.com/ansible/latest/YAMLSyntax.html
 
 
-# Database url where to save data (currently supported are sqlite and postgresql).
-# We suggest sqlite for small to medium data sizes or enough system RAM (as a rule of thumb:
-# less than a million segments, or more than 8GB of RAM) and postgres
+# Database URL where to save data (currently supported are SQLite and Postgres).
+# We suggest sqlite for small to medium data sizes or enough system RAM (as a rule of
+# thumb: less than a million segments, and/or more than 8GB of RAM) and postgres
 # otherwise (note that with postgres, the database must have been created beforehand).
-# If sqlite, just write the path to your local file
-# prefixed with 'sqlite:///' (e.g., 'sqlite:////home/myfolder/db.sqlite'): non-absolute
-# paths will be relative to the config file path.
-# If non-sqlite, the syntax is:
-# dialect+driver://username:password@host:port/database
-# E.g.: 'postgresql://smith:Hw_6,@mymachine.example.org/mydb'
+# If sqlite, just write the path to your local file prefixed with 'sqlite:///' (e.g.,
+# 'sqlite:////home/myfolder/db.sqlite'): non-absolute paths will be relative to the
+# config file path.
+# If non-sqlite, the syntax is: dialect+driver://username:password@host:port/database
+# E.g.: postgresql://smith:Hw_6,@mymachine.example.org/mydb
 # (for info see: http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls)
 dburl: 'postgresql://me:<password>@localhost/me_06_2020'  # NOTE: will be overwritten in the Me program
 
 # Limit to events / data centers / station / channels on or after the specified start time. Specify a date or
 # date-time in iso-format or an integer >=0 to denote the number of days before today at midnight.
-# Example: start=1 and end=0 => fetch events occurred yesterday.
-# Implementation details: 'start' is also a valid name for this parameter
+# Example: start=1 and end=0 => fetch events occurred yesterday
 starttime: 2006-01-01T00:00:00
 
 # Limit to events / data centers / station / channels on or before the specified end time. Specify a date or
 # date-time in iso-format or an integer >=0 to denote the number of days before today at midnight.
-# Example: start=1 and end=0 => fetch events occurred yesterday.
-# Implementation details: 'end' is also a valid name for this parameter
+# Example: start=1 and end=0 => fetch events occurred yesterday
 endtime: 2016-12-25T00:00:00
 
 
@@ -58,22 +55,18 @@ eventws: 'http://geofon.gfz-potsdam.de/fdsnws/event/1/query'
 
 # Limit to events with a latitude larger than or equal to the specified minimum.
 # This parameter is ignored if missing, null, or 'eventws' is given as file path
-# Implementation details: 'minlat' is also a valid name for this parameter
 minlatitude:
 
 # Limit to events with a latitude smaller than or equal to the specified maximum
 # This parameter is ignored if missing, null, or 'eventws' is given as file path
-# Implementation details: 'maxlat' is also a valid name for this parameter
 maxlatitude:
 
 # Limit to events with a longitude larger than or equal to the specified minimum
 # This parameter is ignored if missing, null, or 'eventws' is given as file path
-# Implementation details: 'minlon' is also a valid name for this parameter
 minlongitude:
 
 # Limit to events with a longitude smaller than or equal to the specified maximum
 # This parameter is ignored if missing, null, or 'eventws' is given as file path
-# Implementation details: 'maxlon' is also a valid name for this parameter
 maxlongitude:
 
 # Limit to events with depth more than the specified minimum.
@@ -86,12 +79,10 @@ maxdepth:
 
 # Limit to events with a magnitude larger than the specified minimum
 # This parameter is ignored if missing, null, or 'eventws' is given as file path
-# Implementation details: 'minmag' is also a valid name for this parameter
 minmagnitude:
 
 # Limit to events with a magnitude smaller than the specified maximum
 # This parameter is ignored if missing, null, or 'eventws' is given as file path
-# Implementation details: 'maxmag' is also a valid name for this parameter
 maxmagnitude: null
 
 # Additional event web search parameters. For info, see
