@@ -21,9 +21,9 @@
 # loaded, including segment with missing or malformed waveform data. This is rarely what
 # you might want and slows down considerably the processing or visualization routine
 segment_select:
-        #id: '<10000'
+  id: '<100000'
   has_data: 'true'
-  maxgap_numsamples: '[-0.5, 0.5]'
+  maxgap_numsamples: '(-0.5, 0.5)'
 # event.event_id: 'C200706022134A'
 # station.station: 'LAST'
 #  id: '< 1000'
@@ -264,5 +264,3 @@ advanced_settings:
       location: 2
       channel: 3
       ev_mty: 2
-      st_net: 2
-      st_name: 5
