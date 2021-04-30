@@ -243,7 +243,10 @@ def main(segment, config):
 
     # compute now the amplitude anomaly score, before we might
     # modify trace or inventory:
-    aascore = trace_score(trace, segment.inventory())
+    try:
+        aascore = trace_score(trace, segment.inventory())
+    except Exception as exc:
+        raise SkipSegment('Unable to compute anomaly score: %s' % str(exc))
 
     delta_t = trace.stats.delta
 
