@@ -237,19 +237,41 @@ def main(segment, config):
          https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_hdf.html
          https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#io-hdf5
     """
+    stream = segment.stream()
+    assert1trace(stream)  # raise and return if stream has more than one trace
+    trace = stream[0]  # work with the (surely) one trace now
+
+    # compute now the amplitude anomaly score, before we might
+    # modify trace or inventory:
+    try:
+        aascore = trace_score(trace, segment.inventory())
+    except Exception as exc:
+        raise SkipSegment('Unable to compute anomaly score: %s' % str(exc))
+
+    delta_t = trace.stats.delta
+
+    # discard saturated signals (according to the threshold set in the config file):
+    amp_ratio = ampratio(trace)
+    flag_ratio =1
+    if amp_ratio >= config['amp_ratio_threshold']:
+        flag_ratio = 0
+
     # bandpass the trace, according to the event magnitude.
     # WARNING: this modifies the segment.stream() permanently!
     # If you want to preserve the original stream, store trace.copy()
-    # or use segment.stream(True). Note that bandpass function assures the trace is one
-    # (no gaps/overlaps)
     try:
-        trace = bandpass_remresp(segment, config)  # NOTE: change fmin mag2freq(evt.magnitude)  # FIXME. What is meant here?
-    except (ValueError, TypeError) as exc:
-        raise SkipSegment('error in bandpass_remresp: %s' % str(exc))
+        trace = bandpass_remresp(segment, config)  # NOTE: change fmin mag2freq(evt.magnitude)
+    except (ValueError, TypeError) as texc:
+        raise SkipSegment('error in bandpass_remresp: %s' % str(texc))    
 
-    spectra = signal_noise_spectra(segment, config)
+    spectra = signal_noise_spectra(segment, config)  # FIXME: function to be cleaned!!!
     normal_f0, normal_df, normal_spe = spectra['Signal']
     noise_f0, noise_df, noise_spe = spectra['Noise']
+
+    # smoothing:
+    normal_freqs = np.linspace(normal_f0,
+                               normal_f0 + len(normal_spe) * normal_df,
+                               num=len(normal_spe), endpoint=True)
 
     # For future developments, we might use konno ohmaci:
     #  normal_spe = konno_ohmachi_smoothing(normal_spe, normal_freqs, bandwidth=40,
@@ -257,20 +279,16 @@ def main(segment, config):
     #                                       max_memory_usage=512,
     #                                       normalize=False)
 
+    evt = segment.event
     fcmin = 0.001  # 20s, integration for Energy starts from 16s
     fcmax = config['preprocess']['bandpass_freq_max']  # used in bandpass_remresp
     snr_ = snr(normal_spe, noise_spe, signals_form=config['sn_spectra']['type'],
                fmin=fcmin, fmax=fcmax, delta_signal=normal_df, delta_noise=noise_df)
     
     if snr_ < config['snr_threshold']:
-        # FIXME: log or not?
         raise SkipSegment('snr %f < %f' % (snr_, config['snr_threshold']))
-
-    ##################
-    # ME COMPUTATION #
-    ##################
-
-    normal_spe *= trace.stats.delta
+    
+    normal_spe *= delta_t
 
     duration = get_segment_window_duration(segment, config)
 
@@ -287,14 +305,10 @@ def main(segment, config):
     except KeyError:
         raise KeyError(f'no freq dist table implemented for {duration} seconds')
 
-    # unnecessary asserts just used for testing (comment out):
-    # assert sorted(distances) == distances
-    # assert sorted(frequencies) == frequencies
+    assert sorted(distances) == distances
+    assert sorted(frequencies) == frequencies
 
     # calculate spectra with spline interpolation on given frequencies:
-    normal_freqs = np.linspace(normal_f0,
-                               normal_f0 + len(normal_spe) * normal_df,
-                               num=len(normal_spe), endpoint=True)
     try:
         cs = CubicSpline(normal_freqs, normal_spe)
     except ValueError as verr:
@@ -308,6 +322,7 @@ def main(segment, config):
     if distance_deg < distances[0] or distance_deg > distances[-1]:
         raise SkipSegment('Passed `distance_deg`=%f not in [%f, %f]' %
                          (distance_deg, distances[0], distances[-1]))
+
 
     distindex = np.searchsorted(distances, distance_deg)
 
@@ -346,61 +361,34 @@ def main(segment, config):
     v_cost_s = (1. /(10. * pi * v_dens * (v_swave ** 5)))
     # below I put a factor 2 but ... we don't know yet if it is needed
     energy = 2 * (v_cost_p + v_cost_s) * corrected_spectrum_int_vel_square
-    me_st = (2./3.) * (np.log10(energy) - 4.4)
+    me_st = (2./3.) * (np.log10(energy) - 4.4)  
 
-    # END OF ME COMPUTATION =============================================
+    # write stuff to csv/ hdf:
+    ret = {}
 
-    # Reload (raw) trace (raw) for the final computations (anomaly score and saturation):
-    trace = segment.stream(reload=True)[0]
-
-    ###########################
-    # AMPLITUDE ANOMALY SCORE #
-    ###########################
-
-    try:
-        aascore = trace_score(trace, segment.inventory())
-    except Exception as exc:
-        # FIXME: return nan?
-        raise SkipSegment('Unable to compute anomaly score: %s' % str(exc))
-
-    ##############
-    # SATURATION #
-    ##############
-
-    # discard saturated signals (according to the threshold set in the config file):
-    amp_ratio = ampratio(trace)
-    flag_ratio = 1
-    if amp_ratio >= config['amp_ratio_threshold']:
-        flag_ratio = 0
-
-    ################################
-    # BUILD AND RETURN OUTPUT DICT #
-    ################################
-
-    return {
-        'snr': snr_,
-        'aascore': aascore,
-        'satu': flag_ratio,
-        'dist_deg': distance_deg,
-        's_r': trace.stats.sampling_rate,
-        'me_st': me_st,
-        'channel': segment.channel.channel,
-        'location': segment.channel.location,
-        'ev_id': segment.event.id,
-        'ev_time': segment.event.time,
-        'ev_lat': segment.event.latitude,
-        'ev_lon': segment.event.longitude,
-        'ev_dep': segment.event.depth_km,
-        'ev_mag': segment.event.magnitude,
-        'ev_mty': segment.event.mag_type,
-        'st_id': segment.station.id,
-        'network': segment.station.network,
-        'station': segment.station.station,
-        'st_lat': segment.station.latitude,
-        'st_lon': segment.station.longitude,
-        'st_ele': segment.station.elevation,
-        'integral': corrected_spectrum_int_vel_square
-    }
+    ret['snr'] = snr_
+    ret['aascore'] = aascore
+    ret['satu'] = flag_ratio
+    ret['dist_deg'] = distance_deg      # dist
+    ret['s_r'] = trace.stats.sampling_rate
+    ret['me_st'] = me_st
+    ret['channel'] = segment.channel.channel
+    ret['location'] = segment.channel.location
+    ret['ev_id'] = segment.event.id           # event metadata
+    ret['ev_time'] = segment.event.time
+    ret['ev_lat'] = segment.event.latitude
+    ret['ev_lon'] = segment.event.longitude
+    ret['ev_dep'] = segment.event.depth_km
+    ret['ev_mag'] = segment.event.magnitude
+    ret['ev_mty'] = segment.event.mag_type
+    ret['st_id'] = segment.station.id         # station metadata
+    ret['network'] = segment.station.network
+    ret['station'] = segment.station.station
+    ret['st_lat'] = segment.station.latitude
+    ret['st_lon'] = segment.station.longitude
+    ret['st_ele'] = segment.station.elevation
+    ret['integral'] = corrected_spectrum_int_vel_square 
+    return ret
 
 
 @gui.preprocess
@@ -424,10 +412,10 @@ def bandpass_remresp(segment, config):
       * returns the *base* stream used by all plots whenever the relative check-box is on
       * must return either a Trace or Stream object
 
-    - In this implementation THIS FUNCTION DOES MODIFY `segment.stream()` IN-PLACE: from
-     within `main`, further calls to `segment.stream()` will return the stream returned
-     by this function. However, In any case, you can use `segment.stream().copy()` before
-     this call to keep the old "raw" stream
+    - In this implementation THIS FUNCTION DOES MODIFY `segment.stream()` IN-PLACE: from within
+      `main`, further calls to `segment.stream()` will return the stream returned by this function.
+      However, In any case, you can use `segment.stream().copy()` before this call to keep the
+      old "raw" stream
 
     :return: a Trace object.
     """
@@ -472,49 +460,6 @@ def assert1trace(stream):
         raise SkipSegment("%d traces (probably gaps/overlaps)" % len(stream))
 
 
-def signal_noise_spectra(segment, config):
-    """Compute the signal and noise spectra, as dict of strings mapped to
-    tuples (x0, dx, y). Does not modify the segment's stream or traces in-place
-
-    :return: a dict with two keys, 'Signal' and 'Noise', mapped respectively to
-        the tuples (f0, df, frequencies)
-
-    :raise: an Exception if `segment.stream()` is empty or has more than one
-        trace (possible gaps/overlaps)
-    """
-    # (this function assumes stream has only one trace)
-    atime_shift = config['sn_windows']['arrival_time_shift']
-    arrival_time = UTCDateTime(segment.arrival_time) + atime_shift
-    duration = get_segment_window_duration(segment, config)
-    signal_trace, noise_trace = sn_split(segment.stream()[0], arrival_time, duration)
-    mul_factor = 1  # multiplication factor in dura_sec below (set e.g. to 2) FIXME: correct?
-
-    signal_trace.taper(0.05, type='cosine')
-    dura_sec = mul_factor*signal_trace.stats.delta * (8192-1)
-    signal_trace.trim(starttime=signal_trace.stats.starttime,
-                      endtime=signal_trace.stats.endtime+dura_sec, pad=True,
-                      fill_value=0)
-    dura_sec = mul_factor*noise_trace.stats.delta * (8192-1)
-    noise_trace.taper(0.05, type='cosine')
-    noise_trace.trim(starttime=noise_trace.stats.starttime,
-                     endtime=noise_trace.stats.endtime+dura_sec, pad=True,
-                     fill_value=0)
-
-    x0_sig, df_sig, sig = _spectrum(signal_trace, config)
-    x0_noi, df_noi, noi = _spectrum(noise_trace, config)
-
-    return {'Signal': (x0_sig, df_sig, sig), 'Noise': (x0_noi, df_noi, noi)}
-
-
-def get_segment_window_duration(segment, config):
-    magnitude = segment.event.magnitude
-    magrange2duration = config['magrange2duration']
-    for m in magrange2duration:
-        if m[0] <= magnitude < m[1]:
-            return m[2]
-    return 90
-
-
 def _spectrum(trace, config, starttime=None, endtime=None):
     """Calculate the spectrum of a trace. Returns the tuple (0, df, values),
     where values depends on the config dict parameters.
@@ -545,6 +490,60 @@ def _spectrum(trace, config, starttime=None, endtime=None):
         #         normalize=False)
 
     return 0, df_, spec_
+
+
+# def sn_spectra(segment, config):
+#     """Compute the signal and noise spectra, as dict of strings mapped to
+#     tuples (x0, dx, y). Does not modify the segment's stream or traces in-place
+#
+#     :return: a dict with two keys, 'Signal' and 'Noise', mapped respectively to
+#         the tuples (f0, df, frequencies)
+#
+#     :raise: an Exception if `segment.stream()` is empty or has more than one
+#         trace (possible gaps/overlaps)
+#     """
+#     stream = segment.stream()
+#     duration = get_segment_window_duration(segment, config)
+#     assert1trace(stream)  # raise and return if stream has more than one trace
+#     signal_wdw, noise_wdw = \
+#         segment.sn_windows(duration, config['sn_windows']['arrival_time_shift'])
+#     x0_sig, df_sig, sig = _spectrum(stream[0], config, *signal_wdw)
+#     x0_noi, df_noi, noi = _spectrum(stream[0], config, *noise_wdw)
+#     return {'Signal': (x0_sig, df_sig, sig), 'Noise': (x0_noi, df_noi, noi)}
+
+
+def signal_noise_spectra(segment, config):
+    """Compute the signal and noise spectra, as dict of strings mapped to
+    tuples (x0, dx, y). Does not modify the segment's stream or traces in-place
+
+    :return: a dict with two keys, 'Signal' and 'Noise', mapped respectively to
+        the tuples (f0, df, frequencies)
+
+    :raise: an Exception if `segment.stream()` is empty or has more than one
+        trace (possible gaps/overlaps)
+    """
+    arrival_time = UTCDateTime(segment.arrival_time) + config['sn_windows']['arrival_time_shift']
+    duration = get_segment_window_duration(segment, config)
+    signal_trace, noise_trace = sn_split(segment.stream()[0],  # assumes stream has only one trace
+                                         arrival_time, duration)
+    signal_trace.taper(0.05,type='cosine')
+    dura_sec = 1*signal_trace.stats.delta * (8192-1)
+    signal_trace.trim(starttime=signal_trace.stats.starttime, endtime=signal_trace.stats.endtime+dura_sec, pad=True,fill_value=0)
+    dura_sec = 1*noise_trace.stats.delta * (8192-1)
+    noise_trace.taper(0.05,type='cosine')
+    #dura_sec = 2*signal_trace.stats.delta * (signal_trace.stats.npts-1)
+    #signal_trace.trim(starttime=signal_trace.stats.starttime, endtime=signal_trace.stats.endtime+dura_sec, pad=True,fill_value=0)
+    #dura_sec = 2*noise_trace.stats.delta * (noise_trace.stats.npts-1)
+    noise_trace.trim(starttime=noise_trace.stats.starttime, endtime=noise_trace.stats.endtime+dura_sec, pad=True,fill_value=0)
+    x0_sig, df_sig, sig = _spectrum(signal_trace, config)
+    x0_noi, df_noi, noi = _spectrum(noise_trace, config)
+
+    #signal_wdw, noise_wdw = segment.sn_windows(config['sn_windows']['signal_window'],
+    #                                           config['sn_windows']['arrival_time_shift'])
+    #x0_sig, df_sig, sig = _spectrum(trace, config, *signal_wdw)
+    #x0_noi, df_noi, noi = _spectrum(trace, config, *noise_wdw)
+    return {'Signal': (x0_sig, df_sig, sig), 'Noise': (x0_noi, df_noi, noi)}
+
 
 
 @gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
@@ -579,20 +578,14 @@ def cumulative(segment, config):
     return cumsumsq(stream[0], normalize=True, copy=False)
 
 
-@gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
-def check_spe(segment,config):
-    stream = segment.stream()
-    assert1trace(stream)  # raise and return if stream has more than one trace
-    return signal_smooth_spectra(segment, config)
-
-
 def signal_smooth_spectra(segment, config):
-    # This function assumes stream has only one trace
     stream = segment.stream()
-    atime_shift = config['sn_windows']['arrival_time_shift']
-    arrival_time = UTCDateTime(segment.arrival_time) + atime_shift
+    arrival_time = UTCDateTime(segment.arrival_time) + config['sn_windows']['arrival_time_shift']
     duration = get_segment_window_duration(segment, config)
-    signal_wdw, noise_wdw = sn_split(stream[0], arrival_time, duration)
+    signal_wdw, noise_wdw = sn_split(stream[0],  # assumes stream has only one trace
+                                         arrival_time, duration)
+    #signal_wdw, noise_wdw = segment.sn_windows(config['sn_windows']['signal_window'],
+    #                                           config['sn_windows']['arrival_time_shift'])
     x0_sig, df_sig, sig = _spectrum(signal_wdw,config)
     x0_sig1, df_sig1, sig1 = _spectrumnosmooth(signal_wdw,config)
     x0_sig2, df_sig2, sig2 = _spectrumKO(signal_wdw,config)
@@ -616,7 +609,7 @@ def _spectrumnosmooth(trace, config, starttime=None, endtime=None):
 
     df_, spec_ = func(trace, starttime, endtime,
                       taper_max_percentage=taper_max_percentage, taper_type=taper_type)
-    return 0, df_, spec_
+    return (0, df_, spec_)
 
 
 def _spectrumKO(trace, config, starttime=None, endtime=None):
@@ -647,3 +640,19 @@ def _spectrumKO(trace, config, starttime=None, endtime=None):
                 count=1, enforce_no_matrix=False, max_memory_usage=512,
                 normalize=False)
     return 0, df_, spec_
+
+
+@gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
+def check_spe(segment,config):
+    stream = segment.stream()
+    assert1trace(stream)  # raise and return if stream has more than one trace
+    return signal_smooth_spectra(segment, config)
+
+
+def get_segment_window_duration(segment, config):
+    magnitude = segment.event.magnitude
+    magrange2duration = config['magrange2duration']
+    for m in magrange2duration:
+        if m[0] <= magnitude < m[1]:
+            return m[2]
+    return 90
