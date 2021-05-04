@@ -9,4 +9,4 @@ download:
   dburl: 'postgresql://me:<password>@localhost/me_06_2020'
 
 # The destination directory for the computed tabular (HDF, CSV) and report (HTML) files:
-destidir: '/home/me/medb/me_computed'
+destidir: '/home/me/mecompute/mecomputed/crontabs'

@@ -31,18 +31,25 @@ and set the db url
 Example:
 
 ```
-/home/me/mecompute/mecompute/.env/py3.6.9/bin/pytho /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
+/home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
 ```
 
 
+<!--
+```
+/home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
+```
 
-```
-/home/me/mecompute/mecompute/.env/py3.6.9/bin/pytho /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
-```
 
 If you want to run a cronjob, edit download.sh (modify venv name)
+-->
 
 ### Process
+
+```
+<VENV_PATH>/bin/python <MECOMPUTE_REPO>/stream2segment/cli.py process -c <MECOMPUTE_REPO>/s2s_config/download.private.yaml
+```
+
 
  output directory, e.g.: `/home/me/medb/me_computed`
  

@@ -261,7 +261,7 @@ def main(segment, config):
     # If you want to preserve the original stream, store trace.copy()
     try:
         trace = bandpass_remresp(segment, config)  # NOTE: change fmin mag2freq(evt.magnitude)
-    except TypeError as texc:
+    except (ValueError, TypeError) as texc:
         raise SkipSegment('error in bandpass_remresp: %s' % str(texc))    
 
     spectra = signal_noise_spectra(segment, config)  # FIXME: function to be cleaned!!!
@@ -286,7 +286,7 @@ def main(segment, config):
                fmin=fcmin, fmax=fcmax, delta_signal=normal_df, delta_noise=noise_df)
     
     if snr_ < config['snr_threshold']:
-        raise SkipSegment('low snr %f' % snr_)
+        raise SkipSegment('snr %f < %f' % (snr_, config['snr_threshold']))
     
     normal_spe *= delta_t
 
