@@ -84,11 +84,11 @@ def test_result_dir():
     with pytest.raises(Exception):
         r = ResultDir(root, '202e0-06-03')
     with pytest.raises(Exception):
-        r = ResultDir('rmecompute_2020-06-03')
-    with pytest.raises(Exception):
-        r = ResultDir('rmecompute_2020-06-03_2020-01-01')
-    with pytest.raises(Exception):
-        r = ResultDir('rmecompute_2020-06-03_2020-01-01r')
+        r = ResultDir('2020-06-03')
+    # with pytest.raises(Exception):
+    #     r = ResultDir('rmecompute_2020-06-03_2020-01-01')
+    # with pytest.raises(Exception):
+    #     r = ResultDir('rmecompute_2020-06-03_2020-01-01r')
 
 
 @mock.patch('run.s2s_process')
