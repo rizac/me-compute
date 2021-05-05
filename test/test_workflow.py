@@ -1,3 +1,4 @@
+import shutil
 from datetime import datetime, date, timedelta
 from os.path import dirname, join, abspath, isdir, basename
 from unittest import mock
@@ -21,7 +22,7 @@ from run import ResultDir, process, cli, convert, todatetime
 
 TESTDATA_DIR = join(dirname(__file__), 'data')
 S2SCONFIG_DIR = join(dirname(dirname(__file__)), 's2s_config')
-
+TMP_TEST_DATA_DIRS = [join(TESTDATA_DIR, 'mecomputed')]
 
 def test_todatetime():
     dt = datetime.utcnow().replace(microsecond=345654)  # assure microseconds not 0
@@ -80,7 +81,7 @@ def test_result_dir():
 def test_run(mock_process):
     # dburl = yaml.safe_load(join(dirname(dirname(__file__))), 's2s_config',
     #                        'download.private.yaml')['dburl']
-    rootdir = join(dirname(__file__), 'data', 'mecomputed', 'test')
+    rootdir = TMP_TEST_DATA_DIRS[0]
     runner = CliRunner()
     result = runner.invoke(cli, ['process', rootdir])
     assert not result.exception
@@ -108,7 +109,7 @@ def test_run(mock_process):
 def test_run_real():
     # dburl = yaml.safe_load(join(dirname(dirname(__file__))), 's2s_config',
     #                        'download.private.yaml')['dburl']
-    rootdir = join(dirname(__file__), 'data', 'mecomputed', 'test')
+    rootdir = TMP_TEST_DATA_DIRS[0]
     runner = CliRunner()
 
     # take a single event that we inspected by issuing this:
@@ -121,28 +122,22 @@ def test_run_real():
     # here a list of events (uncomment to choose your preferred, it should have a minimum
     # of some segments to be tested for the HTML generation):
     # first event: (uncomment ot use it) 331 segments, 2 processed
-    # start, end = '2021-05-01T07:08:51', '2021-05-01T07:08:52'
-    # second event ():
+    start, end = '2021-05-01T07:08:51', '2021-05-01T07:08:52'
+    # second event (~=800 events 5 processed, takes 5 minutes?):
     # start, end = '2021-04-05T20:20:00', '2021-04-05T20:40:00'
-    start, end = '2021-04-03 01:10:00', '2021-04-03 01:20:00'
+    # start, end = '2021-04-03 01:10:00', '2021-04-03 01:20:00'
     result = runner.invoke(cli, ['process', rootdir, '-s', start, '-e', end])
     assert not result.exception
-    # check args:
-    # kwargs = mock_process.call_args_list[0][1]
-    # # check dburl is the url in download.private.yaml
-    #
-    # with open(join(S2SCONFIG_DIR, 'download.private.yaml')) as _:
-    #     assert kwargs['dburl'] == yaml.safe_load(_)['dburl']
-    # # check that python file is the file in our s2s config dir:
-    # assert abspath(kwargs['pyfile']) == abspath(join(S2SCONFIG_DIR, 'process.py'))
-    #
-    # # check that output files are all written in the same output directory
-    # assert dirname(kwargs['config']) == dirname(kwargs['logfile']) == dirname(kwargs['outfile'])
-    # # checkthat output directory end time is now:
-    # start, end = ResultDir.timebounds(basename(dirname(kwargs['config'])))
-    # now = datetime.utcnow()
-    # assert end.year == now.year and end.month == now.month and end.day == now.day
-    # # check that output directory start time is now - 7 days:
-    # then = now - timedelta(days=7)
-    # assert start.year == then.year and start.month == then.month \
-    #        and start.day == then.day
+
+
+# Fixture that cleans up test dir
+@pytest.fixture(scope="session", autouse=True)
+def cleanup(request):
+    """Cleanup a testing directory once we are finished."""
+    def remove_test_dir():
+        for _ in TMP_TEST_DATA_DIRS:
+            try:
+                shutil.rmtree(_)
+            except Exception:
+                pass
+    request.addfinalizer(remove_test_dir)
