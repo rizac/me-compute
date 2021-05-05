@@ -17,58 +17,72 @@ from stream2segment.cli import process
 #         '-c', join(src, 'process.yaml'),
 #         '-p', join(src, 'process.py')
 #     ])
-from run import ResultDir, process, cli, convert, todatetime
+from run import ResultDir, process, cli  #, convert, todatetime
 
 
 TESTDATA_DIR = join(dirname(__file__), 'data')
 S2SCONFIG_DIR = join(dirname(dirname(__file__)), 's2s_config')
 TMP_TEST_DATA_DIRS = [join(TESTDATA_DIR, 'mecomputed')]
 
-def test_todatetime():
-    dt = datetime.utcnow().replace(microsecond=345654)  # assure microseconds not 0
-    assert todatetime(dt) is dt
-    assert todatetime(dt.isoformat()) == dt
-    dt = dt.replace(microsecond=0)
-    assert todatetime(dt.isoformat()) == dt
-    dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
-    assert todatetime(dt.isoformat()) == dt
-
-
-@pytest.mark.parametrize('object', [
-    datetime.utcnow(),
-    datetime(1511, 3, 3, 5, 6, 4, 45676),
-    datetime(2311, 1, 31),
-    date.today()
-])
-def test_convert(object):
-    conv = convert(object, to=date if type(object) == datetime else datetime)
-    for att in ['year', 'month', 'day']:
-        assert getattr(object, att) == getattr(conv, att)
-    if type(object) == date:
-        for att in ['hour', 'minute', 'second', 'microsecond']:
-            assert getattr(conv, att) == 0
-        assert conv.isoformat().startswith(object.isoformat())
-        assert convert(object, to=date) is object
-    else:
-        assert object.isoformat().startswith(conv.isoformat())
-        assert convert(object, to=datetime) is object
+# def test_todatetime():
+#     dt = datetime.utcnow().replace(microsecond=345654)  # assure microseconds not 0
+#     assert todatetime(dt) is dt
+#     assert todatetime(dt.isoformat()) == dt
+#     dt = dt.replace(microsecond=0)
+#     assert todatetime(dt.isoformat()) == dt
+#     dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+#     assert todatetime(dt.isoformat()) == dt
+#
+#
+# @pytest.mark.parametrize('object', [
+#     datetime.utcnow(),
+#     datetime(1511, 3, 3, 5, 6, 4, 45676),
+#     datetime(2311, 1, 31),
+#     date.today()
+# ])
+# def test_convert(object):
+#     conv = convert(object, to=date if type(object) == datetime else datetime)
+#     for att in ['year', 'month', 'day']:
+#         assert getattr(object, att) == getattr(conv, att)
+#     if type(object) == date:
+#         for att in ['hour', 'minute', 'second', 'microsecond']:
+#             assert getattr(conv, att) == 0
+#         assert conv.isoformat().startswith(object.isoformat())
+#         assert convert(object, to=date) is object
+#     else:
+#         assert object.isoformat().startswith(conv.isoformat())
+#         assert convert(object, to=datetime) is object
 
 
 def test_result_dir():
-    r = ResultDir(TESTDATA_DIR, 'mecomputed', 'mecomputed_2019-07-01_2221-12-31')
-    assert r.start == datetime(year=2019,month=7, day=1)
-    assert r.end == datetime(year=2221, month=12, day=31)
+    root = TMP_TEST_DATA_DIRS[0]
+    # provide two years way in the future so they cannot conflict with potential
+    # directories created in other tests:
+    r = ResultDir(root, '2219-07-01', '2221-12-31')
+    r2 = ResultDir(root, '2219-07-01', '2221-12-31T00:00:00')
+    r3 = ResultDir(root, '2219-07-01T00:00:00', '2221-12-31')
+    r4 = ResultDir(root, '2219-07-01T00:00:00', '2221-12-31T00:00:00')
+    assert r == r2 == r3 == r4
+
+    assert not isdir(r)
+    assert not ResultDir.is_dir_ok(r)  # missing process file thereing
+
+    r = ResultDir(root, '2219-07-01', '2221-12-31', mkdir=True)
+    assert isdir(r)
+    assert not ResultDir.is_dir_ok(r)
+    with open(join(r, r.RESULT_FILENAME), 'w'):
+        pass
+    assert ResultDir.is_dir_ok(r)
+
+    # assert r.start == datetime(year=2019,month=7, day=1)
+    # assert r.end == datetime(year=2221, month=12, day=31)
 
     with pytest.raises(Exception):  # June does not have 31 days:
-        r = ResultDir(TESTDATA_DIR, 'mecomputed', 'mecomputed_2019-06-31_2221-12-31')
-    with pytest.raises(Exception):  # dirname ok, but HDF/CSV file does not exist in dir:
-        r = ResultDir('a', 'mecompute_2019-01-01_2221-07-01')
+        r = ResultDir(root, '2019-06-31', '2221-12-31')
     with pytest.raises(Exception):
         r = ResultDir('a', 'mecompute_2019-01-01_2221_07_01')
     with pytest.raises(Exception):
-        r = ResultDir('rmecompute_2020-06-03')
-    with pytest.raises(Exception):
-        r = ResultDir('rmecompute_202e0-06-03')
+        r = ResultDir(root, '202e0-06-03')
     with pytest.raises(Exception):
         r = ResultDir('rmecompute_2020-06-03')
     with pytest.raises(Exception):
@@ -96,8 +110,11 @@ def test_run(mock_process):
 
     # check that output files are all written in the same output directory
     assert dirname(kwargs['config']) == dirname(kwargs['logfile']) == dirname(kwargs['outfile'])
-    # checkthat output directory end time is now:
-    start, end = ResultDir.timebounds(basename(dirname(kwargs['config'])))
+    # check that output directory end time is now:
+    _, start, end = basename(dirname(kwargs['config'])).split(ResultDir.FILENAME_SEPARATOR)
+    start, end = ResultDir.to_datetime(start), ResultDir.to_datetime(end)
+    # _, start, end = ResultDir.timebounds(basename(dirname(kwargs['config'])))
+
     now = datetime.utcnow()
     assert end.year == now.year and end.month == now.month and end.day == now.day
     # check that output directory start time is now - 7 days:

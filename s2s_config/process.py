@@ -243,7 +243,7 @@ def main(segment, config):
     # or use segment.stream(True). Note that bandpass function assures the trace is one
     # (no gaps/overlaps)
     try:
-        trace = bandpass_remresp(segment, config)  # NOTE: change fmin mag2freq(evt.magnitude)  # FIXME. What is meant here?
+        trace = bandpass_remresp(segment, config)
     except (ValueError, TypeError) as exc:
         raise SkipSegment('error in bandpass_remresp: %s' % str(exc))
 
@@ -263,7 +263,7 @@ def main(segment, config):
                fmin=fcmin, fmax=fcmax, delta_signal=normal_df, delta_noise=noise_df)
     
     if snr_ < config['snr_threshold']:
-        # FIXME: log or not?
+        # FIXME: we get here quite often, maybe just return None and skip logging?
         raise SkipSegment('snr %f < %f' % (snr_, config['snr_threshold']))
 
     ##################
@@ -325,8 +325,7 @@ def main(segment, config):
 
     corrected_spectrum = np.power(10, corrected_spectrum) ** 2  # convert log10A -> A^2:
     
-    corrected_spectrum_int_vel_square = np.trapz(corrected_spectrum,
-                                                 frequencies) 
+    corrected_spectrum_int_vel_square = np.trapz(corrected_spectrum, frequencies)
 
     depth_km = segment.event.depth_km
     if depth_km < 10:
@@ -360,8 +359,7 @@ def main(segment, config):
     try:
         aascore = trace_score(trace, segment.inventory())
     except Exception as exc:
-        # FIXME: return nan?
-        raise SkipSegment('Unable to compute anomaly score: %s' % str(exc))
+        aascore = np.nan
 
     ##############
     # SATURATION #
@@ -434,32 +432,15 @@ def bandpass_remresp(segment, config):
     stream = segment.stream()
     assert1trace(stream)  # raise and return if stream has more than one trace
     trace = stream[0]
-
     inventory = segment.inventory()
-
-    # define some parameters:
-    evt = segment.event
     conf = config['preprocess']
-    # note: bandpass here below copied the trace! important!
-    trace = bandpass(trace, mag2freq(evt.magnitude), freq_max=conf['bandpass_freq_max'],
+    # note: bandpass here below modified the trace inplace
+    trace = bandpass(trace, freq_min = 0.02, freq_max=conf['bandpass_freq_max'],
                      max_nyquist_ratio=conf['bandpass_max_nyquist_ratio'],
                      corners=conf['bandpass_corners'], copy=False)
     trace.remove_response(inventory=inventory, output=conf['remove_response_output'],
                           water_level=conf['remove_response_water_level'])
     return trace
-
-
-def mag2freq(magnitude):
-    """Return a magnitude dependent frequency (in Hz)"""
-    if magnitude <= 4.5:
-        freq_min = 0.02  #50s
-    elif magnitude <= 5.5:
-        freq_min = 0.02
-    elif magnitude <= 6.5:
-        freq_min = 0.02
-    else:
-        freq_min = 0.02
-    return freq_min
 
 
 def assert1trace(stream):
@@ -487,14 +468,13 @@ def signal_noise_spectra(segment, config):
     arrival_time = UTCDateTime(segment.arrival_time) + atime_shift
     duration = get_segment_window_duration(segment, config)
     signal_trace, noise_trace = sn_split(segment.stream()[0], arrival_time, duration)
-    mul_factor = 1  # multiplication factor in dura_sec below (set e.g. to 2) FIXME: correct?
 
     signal_trace.taper(0.05, type='cosine')
-    dura_sec = mul_factor*signal_trace.stats.delta * (8192-1)
+    dura_sec = signal_trace.stats.delta * (8192-1)
     signal_trace.trim(starttime=signal_trace.stats.starttime,
                       endtime=signal_trace.stats.endtime+dura_sec, pad=True,
                       fill_value=0)
-    dura_sec = mul_factor*noise_trace.stats.delta * (8192-1)
+    dura_sec = noise_trace.stats.delta * (8192-1)
     noise_trace.taper(0.05, type='cosine')
     noise_trace.trim(starttime=noise_trace.stats.starttime,
                      endtime=noise_trace.stats.endtime+dura_sec, pad=True,
