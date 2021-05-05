@@ -17,7 +17,7 @@ from stream2segment.cli import process
 #         '-c', join(src, 'process.yaml'),
 #         '-p', join(src, 'process.py')
 #     ])
-from run import ResultDir, process, cli  #, convert, todatetime
+from cli import ResultDir, process, cli  #, convert, todatetime
 
 
 TESTDATA_DIR = join(dirname(__file__), 'data')
