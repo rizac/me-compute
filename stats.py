@@ -96,7 +96,7 @@ def get_report_rows(hdf_path):
             'lon': df_.ev_lon.iat[0],
             'depth_km': df_.ev_dep.iat[0],
             'time': df_.ev_time.iat[0].isoformat('T'),
-            'num_stations': df_.groupby(['network', 'station']).ngroups
+            'stations': df_.groupby(['network', 'station']).ngroups
         }
 
         values = np.asarray(df_.me_st.values)

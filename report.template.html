@@ -2,11 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+<!--    <link rel="preconnect" href="https://fonts.gstatic.com">-->
+<!--    <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono&display=swap" rel="stylesheet">-->
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&display=swap" rel="stylesheet">
     <!-- custom style if bootstrap is not loaded -->
     <style type="text/css">
         body{
-            font-family: Arial, Helvetica, sans-serif;
-            padding: 2rem;
+            font-family: 'Ubuntu Mono', 'Open Sans', Arial, Helvetica, sans-serif;
+            padding: 1rem;
+            margin: 0px;
         }
         th, td{
             border-top: 1px solid #CCC;
@@ -26,13 +30,27 @@
         td:nth-child(6n+11), td:nth-child(6n + 12), td:nth-child(6n + 13){
             background-color: #DDDDDD;
         }
+        .desc{
+            text-align:justify;
+            max-width: 80rem;
+            line-height:2rem;
+            margin-bottom:1rem;
+        }
+        .title{
+            background-color:#DDC;
+            width: max-content;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom:1rem;
+            margin-top:0px;
+        }
     </style>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+<!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">-->
     <title></title>
 </head>
 <body>
-    <h3>Report (filename: {{filename}})</h3>
-    <div style="text-align:justify; max-width: 80rem;line-height:2rem; padding-bottom:1rem">
+    <h3 class="title">Report (filename: {{filename}})</h3>
+    <div class="desc">
         {% for key, val in description.items() %}
         <b>{{key}}</b>: {{val}}
         <br/>
@@ -55,7 +73,4 @@
         </table>
     </div>
 </body>
-
-<script type="text/javascript">
-</script>
 </html>
