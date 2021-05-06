@@ -51,7 +51,7 @@ class ResultDir(str):
     # safety check:
     assert FILENAME_SEPARATOR not in DIR_PREFIX, 'ResultDir.DIR_PREFIX contains ' \
                                                  '"%s"' % FILENAME_SEPARATOR
-    RESULT_FILENAME = 'process.result.hdf'
+    FILE_BASENAME = 'process'
 
     def __new__(cls, root, start, end, *, mkdir=False):
         start, end = cls.to_datetime(start), cls.to_datetime(end)
@@ -68,6 +68,13 @@ class ResultDir(str):
                 raise ValueError('Unable to create directory "%s"' % fullpath)
 
         return super().__new__(cls, fullpath)
+
+    @property
+    def filename_prefix(self):
+        """Returns the prefix for all filenames to be created in this directory.
+        See `process` for details
+        """
+        return self.FILE_BASENAME + basename(self)[len(self.DIR_PREFIX):]
 
     @staticmethod
     def isoformat(obj, simplify=True):
@@ -103,31 +110,19 @@ class ResultDir(str):
                 pass
         return None
 
-    # @classmethod
-    # def timebounds(cls, path):
-    #     _, start, end = basename(path).split(cls.FILENAME_SEPARATOR)
-    #     return cls.to_datetime(start), cls.to_datetime(end)
-
     @classmethod
-    def is_dir_ok(cls, path):
+    def get_resultfile_path(cls, path):
         """Returns True if the given path exists denotes a ResultDir (name well
         formatted and result HDF file in it)"""
         try:
             name, start, end = basename(path).split(cls.FILENAME_SEPARATOR)
+            if name != cls.DIR_PREFIX:
+                return None
+            resdir = ResultDir(dirname(path), start, end, mkdir=False)
+            filepath = join(resdir, resdir.filename_prefix + '.hdf')
+            return filepath if isfile(filepath) else None
         except Exception:
-            return False
-
-        if name != cls.DIR_PREFIX:
-            return False
-
-        if cls.to_datetime(start) is None or cls.to_datetime(start) is None:
-            return False
-
-        result = join(path, cls.RESULT_FILENAME)
-        if not isfile(result):
-            return False
-
-        return True
+            return None
 
 
 ###########################
@@ -204,16 +199,16 @@ def process(context, end, duration, start, root_out_dir):
     config_in = join(s2s_config_dir, 'process.yaml')
     with open(config_in) as _:
         template = Template(_.read())
-    config = join(destdir, basename(config_in))
+    config = join(destdir, destdir.filename_prefix + '.yaml')
     with open(config, 'w') as _:
         evt_time_range = '(%s, %s]' % (start.isoformat(), end.isoformat())
         _.write(template.render(event_time_range=evt_time_range))
 
     # set logfile:
-    log = join(destdir, splitext(basename(config))[0] + '.log')
+    log = join(destdir, destdir.filename_prefix + '.log')
 
     # set outfile
-    outfile = join(destdir, ResultDir.RESULT_FILENAME)
+    outfile = join(destdir, destdir.filename_prefix + '.hdf')
 
     # context.forward(test)
     dburl = yaml_load(join(s2s_config_dir, 'download.private.yaml'))['dburl']
@@ -251,13 +246,13 @@ def report(input):
     extension with 'html'
     """
     if isfile(input):
-        input = {"%s (%s)" % (ResultDir.DIR_PREFIX, basename(input)): input}  # dict[title, file_path]
+        input = [input]
     else:
         if not isdir(input):
             print('input must be an existing file or directory')
             sys.exit(1)
-        input = {_: join(input, _, ResultDir.RESULT_FILENAME) for _ in listdir(input)  # dict[title, file_path]
-                 if ResultDir.is_dir_ok(join(input, _))}
+        input = [ResultDir.get_resultfile_path(join(input, _)) for _ in listdir(input)]
+        input = [_ for _ in input if _ is not None]  # filter out Nones
         if not input:
             print('input does not seem to be a root directory where process '
                   'result are stored')
@@ -270,7 +265,8 @@ def report(input):
 
     desc = Stats.as_help_dict()
     ret = 1
-    for title, fle in input.items():
+    for fle in input:
+        title = basename(fle)
         output, ext = splitext(fle)
         try:
             with open(output + '.html', 'w') as _:

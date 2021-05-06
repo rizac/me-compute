@@ -41,14 +41,14 @@ def test_result_dir():
     assert r == r2 == r3 == r4
 
     assert not isdir(r)
-    assert not ResultDir.is_dir_ok(r)  # missing process file thereing
+    assert not ResultDir.get_resultfile_path(r)  # missing process file thereing
 
     r = ResultDir(root, '2219-07-01', '2221-12-31', mkdir=True)
     assert isdir(r)
-    assert not ResultDir.is_dir_ok(r)
-    with open(join(r, r.RESULT_FILENAME), 'w'):
+    assert not ResultDir.get_resultfile_path(r)
+    with open(join(r, r.filename_prefix + '.hdf'), 'w'):
         pass
-    assert ResultDir.is_dir_ok(r)
+    assert ResultDir.get_resultfile_path(r)
 
     # assert r.start == datetime(year=2019,month=7, day=1)
     # assert r.end == datetime(year=2221, month=12, day=31)
@@ -67,7 +67,7 @@ def test_result_dir():
     #     r = ResultDir('rmecompute_2020-06-03_2020-01-01r')
 
 
-@mock.patch('run.s2s_process')
+@mock.patch('cli.s2s_process')
 def test_run(mock_process):
     # dburl = yaml.safe_load(join(dirname(dirname(__file__))), 's2s_config',
     #                        'download.private.yaml')['dburl']
@@ -121,7 +121,7 @@ def test_run_real():
     # start, end = '2021-04-03 01:10:00', '2021-04-03 01:20:00'
     result = runner.invoke(cli, ['process', rootdir, '-s', start, '-e', end])
     assert not result.exception
-    assert ResultDir.is_dir_ok(ResultDir(rootdir, start, end, mkdir=False))
+    assert ResultDir.get_resultfile_path(ResultDir(rootdir, start, end, mkdir=False))
 
 
 def test_report():
