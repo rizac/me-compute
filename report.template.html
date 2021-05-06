@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+     <title>{{ title }}</title>
     <meta charset="UTF-8">
 <!--    <link rel="preconnect" href="https://fonts.gstatic.com">-->
 <!--    <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono&display=swap" rel="stylesheet">-->
@@ -17,6 +18,8 @@
             border-bottom: 1px solid #CCC;
             padding: 0.5rem;
         }
+        th{vertical-align: top; cursor: pointer;}
+        td{text-align:right}
         /*
         IF WE ADD MORE MEASURES (currently mean, stdev and count, i.e. 3), THEN
         REPLACE THE 6 below with LEN(MEASURES) * 2, and add as many nth-child as
@@ -35,21 +38,25 @@
             max-width: 80rem;
             line-height:2rem;
             margin-bottom:1rem;
+            /* background-color:#DDC; */
         }
         .title{
-            background-color:#DDC;
+            background-color: #DDC;
             width: max-content;
-            padding: 1rem;
+            padding: .5rem;
             border-radius: 5px;
-            margin-bottom:1rem;
-            margin-top:0px;
+            margin-bottom: 1rem;
+            margin-top: 0px;q:
         }
     </style>
+
+<!--    <script type="text/javascript" src="https://raw.githubusercontent.com/HubSpot/sortable/master/js/sortable.min.js"></script>-->
 <!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">-->
-    <title></title>
+<!--    <title></title>-->
+
 </head>
 <body>
-    <h3 class="title">Report (filename: {{filename}})</h3>
+    <h3 class="title">{{title}}</h3>
     <div class="desc">
         {% for key, val in description.items() %}
         <b>{{key}}</b>: {{val}}
@@ -57,20 +64,31 @@
         {% endfor %}
     </div>
     <div id="main">
-        <table>
-            <tr>
-                {% for key in data[0].keys() %}
-                    <th>{{key}}</th>
-                {% endfor %}
-            </tr>
+        <table data-sortable>
+            <thead>
+                <tr>
+                    {% for key in data[0].keys() %}
+                        <th>{{key}}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
             {% for row in data %}
-            <tr>
-                {% for key, value in row.items() %}
-                    <td>{{value}}</td>
-                {% endfor %}
-            </tr>
+                <tr>
+                    {% for key, value in row.items() %}
+                        <td>{{value}}</td>
+                    {% endfor %}
+                </tr>
             {% endfor %}
+            </tbody>
         </table>
     </div>
 </body>
+
 </html>
+
+
+<script type="text/javascript">
+/*! sortable.js 0.8.0. Credit to: https://raw.githubusercontent.com/HubSpot/sortable/master/js/sortable.min.js */
+(function(){var a,b,c,d,e,f,g;a="table[data-sortable]",d=/^-?[£$¤]?[\d,.]+%?$/,g=/^\s+|\s+$/g,c=["click"],f="ontouchstart"in document.documentElement,f&&c.push("touchstart"),b=function(a,b,c){return null!=a.addEventListener?a.addEventListener(b,c,!1):a.attachEvent("on"+b,c)},e={init:function(b){var c,d,f,g,h;for(null==b&&(b={}),null==b.selector&&(b.selector=a),d=document.querySelectorAll(b.selector),h=[],f=0,g=d.length;g>f;f++)c=d[f],h.push(e.initTable(c));return h},initTable:function(a){var b,c,d,f,g,h;if(1===(null!=(h=a.tHead)?h.rows.length:void 0)&&"true"!==a.getAttribute("data-sortable-initialized")){for(a.setAttribute("data-sortable-initialized","true"),d=a.querySelectorAll("th"),b=f=0,g=d.length;g>f;b=++f)c=d[b],"false"!==c.getAttribute("data-sortable")&&e.setupClickableTH(a,c,b);return a}},setupClickableTH:function(a,d,f){var g,h,i,j,k,l;for(i=e.getColumnType(a,f),h=function(b){var c,g,h,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D;if(b.handled===!0)return!1;for(b.handled=!0,m="true"===this.getAttribute("data-sorted"),n=this.getAttribute("data-sorted-direction"),h=m?"ascending"===n?"descending":"ascending":i.defaultSortDirection,p=this.parentNode.querySelectorAll("th"),s=0,w=p.length;w>s;s++)d=p[s],d.setAttribute("data-sorted","false"),d.removeAttribute("data-sorted-direction");if(this.setAttribute("data-sorted","true"),this.setAttribute("data-sorted-direction",h),o=a.tBodies[0],l=[],m){for(D=o.rows,v=0,z=D.length;z>v;v++)g=D[v],l.push(g);for(l.reverse(),B=0,A=l.length;A>B;B++)k=l[B],o.appendChild(k)}else{for(r=null!=i.compare?i.compare:function(a,b){return b-a},c=function(a,b){return a[0]===b[0]?a[2]-b[2]:i.reverse?r(b[0],a[0]):r(a[0],b[0])},C=o.rows,j=t=0,x=C.length;x>t;j=++t)k=C[j],q=e.getNodeValue(k.cells[f]),null!=i.comparator&&(q=i.comparator(q)),l.push([q,k,j]);for(l.sort(c),u=0,y=l.length;y>u;u++)k=l[u],o.appendChild(k[1])}return"function"==typeof window.CustomEvent&&"function"==typeof a.dispatchEvent?a.dispatchEvent(new CustomEvent("Sortable.sorted",{bubbles:!0})):void 0},l=[],j=0,k=c.length;k>j;j++)g=c[j],l.push(b(d,g,h));return l},getColumnType:function(a,b){var c,d,f,g,h,i,j,k,l,m,n;if(d=null!=(l=a.querySelectorAll("th")[b])?l.getAttribute("data-sortable-type"):void 0,null!=d)return e.typesObject[d];for(m=a.tBodies[0].rows,h=0,j=m.length;j>h;h++)for(c=m[h],f=e.getNodeValue(c.cells[b]),n=e.types,i=0,k=n.length;k>i;i++)if(g=n[i],g.match(f))return g;return e.typesObject.alpha},getNodeValue:function(a){var b;return a?(b=a.getAttribute("data-value"),null!==b?b:"undefined"!=typeof a.innerText?a.innerText.replace(g,""):a.textContent.replace(g,"")):""},setupTypes:function(a){var b,c,d,f;for(e.types=a,e.typesObject={},f=[],c=0,d=a.length;d>c;c++)b=a[c],f.push(e.typesObject[b.name]=b);return f}},e.setupTypes([{name:"numeric",defaultSortDirection:"descending",match:function(a){return a.match(d)},comparator:function(a){return parseFloat(a.replace(/[^0-9.-]/g,""),10)||0}},{name:"date",defaultSortDirection:"ascending",reverse:!0,match:function(a){return!isNaN(Date.parse(a))},comparator:function(a){return Date.parse(a)||0}},{name:"alpha",defaultSortDirection:"ascending",match:function(){return!0},compare:function(a,b){return a.localeCompare(b)}}]),setTimeout(e.init,0),"function"==typeof define&&define.amd?define(function(){return e}):"undefined"!=typeof exports?module.exports=e:window.Sortable=e}).call(this);
+</script>

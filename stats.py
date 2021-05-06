@@ -40,7 +40,7 @@ class Stats(Enum):
             raise ValueError('%s is not a Stats enumeration item' % str(self))
 
         stats = avg_std_count(values, weights, round=ROUND)
-        return {self.name + '<br/>' + k: v for k, v in stats.items()}
+        return {self.name + ' ' + k: v for k, v in stats.items()}
 
     @classmethod
     def as_help_dict(cls):
@@ -94,7 +94,7 @@ def get_report_rows(hdf_path):
             'mag': df_.ev_mag.iat[0],
             'lat': df_.ev_lat.iat[0],
             'lon': df_.ev_lon.iat[0],
-            'depth_km': df_.ev_dep.iat[0],
+            'depth km': df_.ev_dep.iat[0],
             'time': df_.ev_time.iat[0].isoformat('T'),
             'stations': df_.groupby(['network', 'station']).ngroups
         }
@@ -107,7 +107,8 @@ def get_report_rows(hdf_path):
         row.update(Stats.Me_w.compute(values, anomalyscores))
         row.update(Stats.Me_w2.compute(values, anomalyscores))
 
-        yield row
+        yield {k.replace(' ', '<br/>'): v for k, v in row.items()}
+        # yield row
 
 
 def create_html(hdf_path):

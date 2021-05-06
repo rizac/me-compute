@@ -251,13 +251,13 @@ def report(input):
     extension with 'html'
     """
     if isfile(input):
-        input = [input]
+        input = {"%s (%s)" % (ResultDir.DIR_PREFIX, basename(input)): input}  # dict[title, file_path]
     else:
         if not isdir(input):
             print('input must be an existing file or directory')
             sys.exit(1)
-        input = [join(input, _) for _ in listdir(input)
-                 if ResultDir.is_dir_ok(join(input, _))]
+        input = {_: join(input, _, ResultDir.RESULT_FILENAME) for _ in listdir(input)  # dict[title, file_path]
+                 if ResultDir.is_dir_ok(join(input, _))}
         if not input:
             print('input does not seem to be a root directory where process '
                   'result are stored')
@@ -270,12 +270,12 @@ def report(input):
 
     desc = Stats.as_help_dict()
     ret = 1
-    for fle in input:
+    for title, fle in input.items():
         output, ext = splitext(fle)
         try:
             with open(output + '.html', 'w') as _:
                 data = [_ for _ in get_report_rows(fle)]
-                _.write(template.render(data=data, description=desc,
+                _.write(template.render(title=title, data=data, description=desc,
                                         filename=basename(fle)))
                 # if at least one report is generated, return 0 at the end. Thus:
                 ret = 0
