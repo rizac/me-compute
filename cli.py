@@ -1,5 +1,10 @@
+"""
+Command line interface (cli) of the program, type `python cli.py --help` for details
+on the terminal
+"""
 # import sys
 # import yaml
+import sys
 from datetime import datetime, date, timedelta
 # from sqlalchemy.sql.functions import max as sqlmax, min as sqlmin
 from os.path import abspath, join, dirname, isdir, basename, splitext, isfile, relpath
@@ -13,49 +18,12 @@ from jinja2 import Template
 from stream2segment.process import yaml_load
 from stream2segment.cli import process as s2s_process  # , download as s2s_download
 
-
-cli = click.Group()
-
+from stats import get_report_rows, Stats
 
 s2s_config_dir = join(dirname(__file__), "s2s_config")
 
 
-def get_config():
-    return yaml_load(dirname(__file__), 'config.yaml')
-
-
 DTIME_FORMATS = ('%Y-%m-%d', '%Y-%m-%dT%H:%M:%S')  # , '%Y-%m-%dT%H:%M:%S.%f')
-
-
-# def check_datetime(datetime_str):
-#     for format_ in DTIME_FORMATS:
-#         try:
-#             return datetime.strptime(datetime_str, format_)
-#         except:
-#             pass
-
-# def todatetime(obj):  # datetime.fromisoformat can't be used, need py 3.6.9 compatibility
-#     """
-#     :param obj: date, datetime, or string denoting a date or datetime object
-#         (ISO formatted)
-#     :return: datetime
-#     """
-#     if isinstance(obj, date):
-#         return convert(obj, to=datetime)
-#     if isinstance(obj, datetime):
-#         return obj
-#     obj_s = str(obj).strip()
-#     # hacky quick and dirty normalizations:
-#     if obj_s[-1:].lower() == 'z':
-#         obj_s = obj_s[:-1]
-#     obj_s = obj_s.replace(' ', 'T')
-#     # now parse, three formats are recognized:
-#     for format_ in DTIME_FORMATS:
-#         try:
-#             return datetime.strptime(obj_s, format_)
-#         except:
-#             pass
-#     raise ValueError('Invalid datetime %s' % obj_s)
 
 
 class DateTime(click.DateTime):
@@ -68,16 +36,6 @@ class DateTime(click.DateTime):
 
     def get_metavar(self, param):
         return "DATETIME"
-
-    # def convert(self, value, param, ctx):
-    #     if super().convert(value, param, ctx):
-    #         return value
-
-
-# def convert(obj, to=datetime):
-#     if obj.__class__ is to:
-#         return obj
-#     return to(year=obj.year, month=obj.month, day=obj.day)
 
 
 class ResultDir(str):
@@ -172,10 +130,13 @@ class ResultDir(str):
         return True
 
 
+###########################
+# Me cpompute cli commands:
+###########################
+
+cli = click.Group()
 
 
-
-# invoke s2s ccommand
 # (https://click.palletsprojects.com/en/5.x/advanced/#invoking-other-commands)
 @cli.command(context_settings=dict(max_content_width=89),)
 @click.option('end', '-e', type=DateTime(), default=None,
@@ -270,6 +231,59 @@ def _get_timebounds(start, duration, end):
     elif start is None:
         start = end - timedelta(days=duration)
     return start, end
+
+
+# (https://click.palletsprojects.com/en/5.x/advanced/#invoking-other-commands)
+@cli.command(context_settings=dict(max_content_width=89),)
+@click.argument('input', required=False)
+def report(input):
+    """
+    Create HTML report from a given HDF file generated wiuth the process command
+     Magnitude energy data using stream2segment and saving the HDF file into
+    a child directory of the given root output directory. the child directory will be
+    named according the desired time window given as argument
+
+    INPUT: the root directory given as argument of the `process` command
+    (a report will be created for all HDFs found therein) or a single HDF file generated
+    with the command.
+
+    Each HTML report will be created with the same HDF name replacing the file
+    extension with 'html'
+    """
+    if isfile(input):
+        input = [input]
+    else:
+        if not isdir(input):
+            print('input must be an existing file or directory')
+            sys.exit(1)
+        input = [join(input, _) for _ in listdir(input)
+                 if ResultDir.is_dir_ok(join(input, _))]
+        if not input:
+            print('input does not seem to be a root directory where process '
+                  'result are stored')
+            sys.exit(1)
+
+    print("%d report(s) to be generated" % len(input))
+    config_in = join(dirname(__file__), 'report.template.html')
+    with open(config_in) as _:
+        template = Template(_.read())
+
+    desc = Stats.as_help_dict()
+    ret = 1
+    for fle in input:
+        output, ext = splitext(fle)
+        try:
+            with open(output + '.html', 'w') as _:
+                data = [_ for _ in get_report_rows(fle)]
+                _.write(template.render(data=data, description=desc,
+                                        filename=basename(fle)))
+                # if at least one report is generated, return 0 at the end. Thus:
+                ret = 0
+        except Exception as exc:
+            print('ERROR generating %s: %s' % (output, str(exc)))
+
+    sys.exit(ret)
+
 
 
 if __name__ == '__main__':

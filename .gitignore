@@ -2,6 +2,7 @@
 config/mecompute.yaml
 config.yaml
 download.private.yaml
+.DS_Store
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

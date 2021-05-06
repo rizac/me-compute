@@ -1,22 +1,14 @@
 import shutil
+import os
 from datetime import datetime, date, timedelta
-from os.path import dirname, join, abspath, isdir, basename
+from os.path import dirname, join, abspath, isdir, basename, isfile
 from unittest import mock
 
 import pytest
 import yaml
 from click.testing import CliRunner
-from stream2segment.cli import process
+from numpy.compat import os_PathLike
 
-
-# def test_workflow():
-#     src = join(dirname(dirname(__file__)), 's2s_config')
-#     runner = CliRunner()
-#     result = runner.invoke(process(), [
-#         '-d', join(src, 'download.yaml').replace(),
-#         '-c', join(src, 'process.yaml'),
-#         '-p', join(src, 'process.py')
-#     ])
 from cli import ResultDir, process, cli  #, convert, todatetime
 
 
@@ -24,34 +16,18 @@ TESTDATA_DIR = join(dirname(__file__), 'data')
 S2SCONFIG_DIR = join(dirname(dirname(__file__)), 's2s_config')
 TMP_TEST_DATA_DIRS = [join(TESTDATA_DIR, 'mecomputed')]
 
-# def test_todatetime():
-#     dt = datetime.utcnow().replace(microsecond=345654)  # assure microseconds not 0
-#     assert todatetime(dt) is dt
-#     assert todatetime(dt.isoformat()) == dt
-#     dt = dt.replace(microsecond=0)
-#     assert todatetime(dt.isoformat()) == dt
-#     dt = dt.replace(hour=0, minute=0, second=0, microsecond=0)
-#     assert todatetime(dt.isoformat()) == dt
-#
-#
-# @pytest.mark.parametrize('object', [
-#     datetime.utcnow(),
-#     datetime(1511, 3, 3, 5, 6, 4, 45676),
-#     datetime(2311, 1, 31),
-#     date.today()
-# ])
-# def test_convert(object):
-#     conv = convert(object, to=date if type(object) == datetime else datetime)
-#     for att in ['year', 'month', 'day']:
-#         assert getattr(object, att) == getattr(conv, att)
-#     if type(object) == date:
-#         for att in ['hour', 'minute', 'second', 'microsecond']:
-#             assert getattr(conv, att) == 0
-#         assert conv.isoformat().startswith(object.isoformat())
-#         assert convert(object, to=date) is object
-#     else:
-#         assert object.isoformat().startswith(conv.isoformat())
-#         assert convert(object, to=datetime) is object
+
+# Fixture that cleans up test dir
+@pytest.fixture(scope="session", autouse=True)
+def cleanup(request):
+    """Cleanup a testing directory once we are finished."""
+    def remove_test_dir():
+        for _ in TMP_TEST_DATA_DIRS:
+            try:
+                shutil.rmtree(_)
+            except Exception:
+                pass
+    request.addfinalizer(remove_test_dir)
 
 
 def test_result_dir():
@@ -147,14 +123,18 @@ def test_run_real():
     assert not result.exception
     assert ResultDir.is_dir_ok(ResultDir(rootdir, start, end, mkdir=False))
 
-# Fixture that cleans up test dir
-@pytest.fixture(scope="session", autouse=True)
-def cleanup(request):
-    """Cleanup a testing directory once we are finished."""
-    def remove_test_dir():
-        for _ in TMP_TEST_DATA_DIRS:
-            try:
-                shutil.rmtree(_)
-            except Exception:
-                pass
-    request.addfinalizer(remove_test_dir)
+
+def test_report():
+    rootdir = dirname(TMP_TEST_DATA_DIRS[0])
+    input = join(rootdir, 'process.result.multievent.hdf')
+    output = input.replace('.hdf', '.html')
+
+    if isfile(output):
+        os.remove(output)
+    assert not isfile(output)
+
+    runner = CliRunner()
+
+    result = runner.invoke(cli, ['report', input])
+    assert not result.exception
+    assert isfile(output)
