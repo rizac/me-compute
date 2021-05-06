@@ -121,6 +121,7 @@ def test_run_real():
     # start, end = '2021-04-03 01:10:00', '2021-04-03 01:20:00'
     result = runner.invoke(cli, ['process', rootdir, '-s', start, '-e', end])
     assert not result.exception
+    # check that the produced hdf file exists:
     assert ResultDir.get_resultfile_path(ResultDir(rootdir, start, end, mkdir=False))
 
 
