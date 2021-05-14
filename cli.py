@@ -272,10 +272,10 @@ def report(input):
         try:
             with open(output + '.html', 'w') as _:
                 # data = [_ for _ in get_report_rows(fle)]
-                evts, stas = [], []
-                for evts_, stas_ in get_report_rows(fle):
-                    evts.append(evts_)
-                    stas.append(stas_)
+                evts, stas = [], {}
+                for evid, evt_stats, stations in get_report_rows(fle):
+                    evts.append(evt_stats)
+                    stas[evid] = stations
                 _.write(template.render(title=title, data=evts, description=desc,
                                         filename=basename(fle),
                                         stations=json.dumps(stas, separators=(',', ':'))))

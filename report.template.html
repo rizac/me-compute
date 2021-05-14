@@ -89,12 +89,14 @@
         }
         table td button {
             width: 100%;
-            border-radius: .2rem;
+            border-radius: .25rem;
             border: 0px solid black;
             padding: .2rem;
-            background-color: steelblue;
-            color: white;
+            background-color: #c6dbec;
             cursor: pointer;
+        }
+        tr.selected{
+            border: 2px solid chocolate;
         }
     </style>
 
@@ -109,19 +111,19 @@
             <thead>
                 <tr>
                     {%- for key in data[0].keys() -%}
-                        <th>{{key}}</th>
+                        <th>{{key | replace(" ", "<br>") }}</th>
                     {%- endfor -%}
                     <!-- <th>Details</th> -->
                 </tr>
             </thead>
             <tbody>
             {%- for row in data -%}
-                {% set row_index = loop.index0 %}
+                {% set event_id = row["event id"] %}
                 <tr>
                     {%- for key, value in row.items() -%}
                         <td>
                         {%- if key == 'stations' -%}
-                        <button onclick="showMap({{ row_index }})">{{value}}</button>
+                        <button onclick="showMap({{ event_id }})">{{value}}</button>
                         {%- else -%}
                         {{value}}
                         {%- endif -%}
@@ -212,24 +214,35 @@ legend.onAdd = function (map) {
 legend.addTo(map);
 
 
-function showMap(index){
+function showMap(event_id){
     // get event info (quick and dirt, from table):
-    var tr = document.querySelector('table').children[1].children[index];
-    var evId = parseFloat(tr.children[0].textContent);
-    var evLat = parseFloat(tr.children[2].textContent);
-    var evLon = parseFloat(tr.children[3].textContent);
+    var tableRows = document.querySelector('table').children[1].children;  // children[1] => tbody
+    var eventTr = null;
 
+    // remove selected class on all trs except to the selected tr:
+    Array.from(tableRows).forEach((tr, i) => {
+        var evId = parseFloat(tr.children[0].textContent);
+        if (evId == event_id){
+            tr.classList.add('selected');
+            eventTr = tr;
+        }else{
+            tr.classList.remove('selected');
+        }
+    });
+
+    var evLat = parseFloat(eventTr.children[2].textContent);
+    var evLon = parseFloat(eventTr.children[3].textContent);
 
     document.querySelector('#map').style.visibility='visible';
     document.querySelector('#map_header').style.visibility='visible';
-    document.querySelector('#map_header').innerHTML = `Stations details (Event id: ${evId})`;
+    document.querySelector('#map_header').innerHTML = `Stations details (Event id: ${event_id})`;
 
    map.eachLayer(function (layer) {
         if (layer instanceof L.FeatureGroup){
             map.removeLayer(layer);
         }
     });
-    var stas = stations[index];
+    var stas = stations[event_id];
     var [min, max] = [null, null];
     var markers = stas.map(function(element){
         var latLng = [element[0], element[1]];
@@ -242,7 +255,11 @@ function showMap(index){
             color: '#999999',
             opacity: 1
         };
-        var popupContent = `Station: ${element[2]}<br>Me residual: ${element[3].toFixed(3)}`;
+        var deltaMe = element[3];
+        if (typeof deltaMe === 'number'){
+            deltaMe = deltaMe.toFixed(3);
+        }
+        var popupContent = `Station: ${element[2]}<br>Me residual: ${deltaMe}`;
         return L.polyMarker(latLng, options).bindPopup(popupContent);
     });
     // Add event marker (circle):

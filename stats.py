@@ -90,6 +90,7 @@ def get_report_rows(hdf_path):
 
         group_sta = df_.groupby(['network', 'station'])
 
+        # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
         row = {  # we are working in python 3.6.9+, order is preserved
             'event id': ev_id,
             # df_ has all event related columns made of 1 unique value, so take 1st:
@@ -120,7 +121,7 @@ def get_report_rows(hdf_path):
                          net + '.' + sta,
                          res if np.isfinite(res) else None])
 
-        yield {k.replace(' ', '<br/>'): v for k, v in row.items()}, stas
+        yield ev_id, {k: v for k, v in row.items()}, stas
         # yield row
 
 
