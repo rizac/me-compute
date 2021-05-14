@@ -6,12 +6,31 @@
 <!--    <link rel="preconnect" href="https://fonts.gstatic.com">-->
 <!--    <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono&display=swap" rel="stylesheet">-->
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&display=swap" rel="stylesheet">
-    <!-- custom style if bootstrap is not loaded -->
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+   integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+   crossorigin=""/>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+   crossorigin=""></script>
+
+    <script type='text/javascript' src='https://cdn.jsdelivr.net/gh/rizac/leaflet-poly-marker/polymarker.min.js'></script>
+
+    <!-- custom style (bootstrap is not used) -->
     <style type="text/css">
         body{
             font-family: 'Ubuntu Mono', 'Open Sans', Arial, Helvetica, sans-serif;
-            padding: 1rem;
+            padding: 0px; /*1rem;*/
             margin: 0px;
+            width:100vw;
+            height:100vh;
+            display:flex;
+            flex-direction:column;
+        }
+        body > div, h3{
+            margin-left: 0.5rem;
+            margin-right: 0.5rem;
         }
         th, td{
             border-top: 1px solid #CCC;
@@ -21,9 +40,10 @@
         th{vertical-align: top; cursor: pointer;}
         td{text-align:right}
         /*
-        IF WE ADD MORE MEASURES (currently mean, stdev and count, i.e. 3), THEN
+        STYLING COLUMNS BY MEASURE GROUPS:
+        (IF WE ADD MORE MEASURES (currently mean, stdev and count, i.e. 3), THEN
         REPLACE THE 6 below with LEN(MEASURES) * 2, and add as many nth-child as
-        LEN(MEASURES)
+        LEN(MEASURES))
         */
         th:nth-child(6n+8), th:nth-child(6n + 9), th:nth-child(6n + 10),
         td:nth-child(6n+8), td:nth-child(6n + 9), td:nth-child(6n + 10){
@@ -33,12 +53,12 @@
         td:nth-child(6n+11), td:nth-child(6n + 12), td:nth-child(6n + 13){
             background-color: #DDDDDD;
         }
+        /* STOP STYLING COLUMNS BY MEASURE GROUP*/
         .desc{
             text-align:justify;
             max-width: 80rem;
             line-height:2rem;
             margin-bottom:1rem;
-            /* background-color:#DDC; */
         }
         .title{
             background-color: #DDC;
@@ -48,47 +68,187 @@
             margin-bottom: 1rem;
             margin-top: 0px;q:
         }
+        #map {
+            flex: 1 0 auto;
+            margin-bottom:.5rem;
+        }
+        .main-div{
+            display:flex; flex-direction:row; overflow:hidden;
+        }
+        .table-div{
+            flex: 1 0 auto;
+            overflow:auto;
+        }
+        .side-div{
+            display:flex;
+            flex-direction:column;
+            margin-left: .5rem;
+        }
+        .side-div h4:first-child{
+            margin-top: 0px;
+        }
+        table td button {
+            width: 100%;
+            border-radius: .2rem;
+            border: 0px solid black;
+            padding: .2rem;
+            background-color: steelblue;
+            color: white;
+            cursor: pointer;
+        }
     </style>
 
-<!--    <script type="text/javascript" src="https://raw.githubusercontent.com/HubSpot/sortable/master/js/sortable.min.js"></script>-->
 <!--    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">-->
-<!--    <title></title>-->
 
 </head>
 <body>
-    <h3 class="title">{{title}}</h3>
-    <div class="desc">
-        {% for key, val in description.items() %}
-        <b>{{key}}</b>: {{val}}
-        <br/>
-        {% endfor %}
-    </div>
-    <div id="main">
-        <table data-sortable>
+<h3 class="title">{{title}}</h3>
+<div class="main-div">
+    <div class="table-div">
+        <table data-sortable style="border-collapse: collapse;">
             <thead>
                 <tr>
-                    {% for key in data[0].keys() %}
+                    {%- for key in data[0].keys() -%}
                         <th>{{key}}</th>
-                    {% endfor %}
+                    {%- endfor -%}
+                    <!-- <th>Details</th> -->
                 </tr>
             </thead>
             <tbody>
-            {% for row in data %}
+            {%- for row in data -%}
+                {% set row_index = loop.index0 %}
                 <tr>
-                    {% for key, value in row.items() %}
-                        <td>{{value}}</td>
-                    {% endfor %}
+                    {%- for key, value in row.items() -%}
+                        <td>
+                        {%- if key == 'stations' -%}
+                        <button onclick="showMap({{ row_index }})">{{value}}</button>
+                        {%- else -%}
+                        {{value}}
+                        {%- endif -%}
+                        </td>
+                    {%- endfor -%}
                 </tr>
-            {% endfor %}
+            {%- endfor -%}
             </tbody>
         </table>
     </div>
-</body>
+    <div class="side-div">
+        <h4>Legend</h4>
+        <div class="desc">
+            {%- for key, val in description.items() -%}
+            <b>{{key}}</b>: {{val}}
+            <br/>
+            {%- endfor -%}
+            (<b>count</b>: number of waveforms used)
+        </div>
+        <h4 id="map_header" style="visibility:hidden"></h4>
+        <div id="map" style="visibility:hidden"></div>
+    </div>
 
+</div>
+</body>
 </html>
 
 
 <script type="text/javascript">
+var stations = {{ stations }};
+
+var residualsFullScale = [-1, 1];  // REQUIREMENTS: first element <0, second element >0
+
+function getColor(residual){
+    if (residual == 0){
+        return 'rgb(255, 255, 255)';
+    }else if(residual > 0){  // red scale
+        var maxRes = residualsFullScale[1];
+        var value = Math.min(residual, maxRes) / maxRes;
+        value = Math.round(255*value);
+        return `rgb(255, ${255 - value}, ${255 - value})`;
+    }else{  // blue scale
+        var minRes = residualsFullScale[0];
+        var value = Math.max(residual, minRes) / minRes;
+        value = Math.round(255*value);
+        return `rgb(${255 - value}, ${255 - value}, 255)`;
+    }
+}
+
 /*! sortable.js 0.8.0. Credit to: https://raw.githubusercontent.com/HubSpot/sortable/master/js/sortable.min.js */
 (function(){var a,b,c,d,e,f,g;a="table[data-sortable]",d=/^-?[£$¤]?[\d,.]+%?$/,g=/^\s+|\s+$/g,c=["click"],f="ontouchstart"in document.documentElement,f&&c.push("touchstart"),b=function(a,b,c){return null!=a.addEventListener?a.addEventListener(b,c,!1):a.attachEvent("on"+b,c)},e={init:function(b){var c,d,f,g,h;for(null==b&&(b={}),null==b.selector&&(b.selector=a),d=document.querySelectorAll(b.selector),h=[],f=0,g=d.length;g>f;f++)c=d[f],h.push(e.initTable(c));return h},initTable:function(a){var b,c,d,f,g,h;if(1===(null!=(h=a.tHead)?h.rows.length:void 0)&&"true"!==a.getAttribute("data-sortable-initialized")){for(a.setAttribute("data-sortable-initialized","true"),d=a.querySelectorAll("th"),b=f=0,g=d.length;g>f;b=++f)c=d[b],"false"!==c.getAttribute("data-sortable")&&e.setupClickableTH(a,c,b);return a}},setupClickableTH:function(a,d,f){var g,h,i,j,k,l;for(i=e.getColumnType(a,f),h=function(b){var c,g,h,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z,A,B,C,D;if(b.handled===!0)return!1;for(b.handled=!0,m="true"===this.getAttribute("data-sorted"),n=this.getAttribute("data-sorted-direction"),h=m?"ascending"===n?"descending":"ascending":i.defaultSortDirection,p=this.parentNode.querySelectorAll("th"),s=0,w=p.length;w>s;s++)d=p[s],d.setAttribute("data-sorted","false"),d.removeAttribute("data-sorted-direction");if(this.setAttribute("data-sorted","true"),this.setAttribute("data-sorted-direction",h),o=a.tBodies[0],l=[],m){for(D=o.rows,v=0,z=D.length;z>v;v++)g=D[v],l.push(g);for(l.reverse(),B=0,A=l.length;A>B;B++)k=l[B],o.appendChild(k)}else{for(r=null!=i.compare?i.compare:function(a,b){return b-a},c=function(a,b){return a[0]===b[0]?a[2]-b[2]:i.reverse?r(b[0],a[0]):r(a[0],b[0])},C=o.rows,j=t=0,x=C.length;x>t;j=++t)k=C[j],q=e.getNodeValue(k.cells[f]),null!=i.comparator&&(q=i.comparator(q)),l.push([q,k,j]);for(l.sort(c),u=0,y=l.length;y>u;u++)k=l[u],o.appendChild(k[1])}return"function"==typeof window.CustomEvent&&"function"==typeof a.dispatchEvent?a.dispatchEvent(new CustomEvent("Sortable.sorted",{bubbles:!0})):void 0},l=[],j=0,k=c.length;k>j;j++)g=c[j],l.push(b(d,g,h));return l},getColumnType:function(a,b){var c,d,f,g,h,i,j,k,l,m,n;if(d=null!=(l=a.querySelectorAll("th")[b])?l.getAttribute("data-sortable-type"):void 0,null!=d)return e.typesObject[d];for(m=a.tBodies[0].rows,h=0,j=m.length;j>h;h++)for(c=m[h],f=e.getNodeValue(c.cells[b]),n=e.types,i=0,k=n.length;k>i;i++)if(g=n[i],g.match(f))return g;return e.typesObject.alpha},getNodeValue:function(a){var b;return a?(b=a.getAttribute("data-value"),null!==b?b:"undefined"!=typeof a.innerText?a.innerText.replace(g,""):a.textContent.replace(g,"")):""},setupTypes:function(a){var b,c,d,f;for(e.types=a,e.typesObject={},f=[],c=0,d=a.length;d>c;c++)b=a[c],f.push(e.typesObject[b.name]=b);return f}},e.setupTypes([{name:"numeric",defaultSortDirection:"descending",match:function(a){return a.match(d)},comparator:function(a){return parseFloat(a.replace(/[^0-9.-]/g,""),10)||0}},{name:"date",defaultSortDirection:"ascending",reverse:!0,match:function(a){return!isNaN(Date.parse(a))},comparator:function(a){return Date.parse(a)||0}},{name:"alpha",defaultSortDirection:"ascending",match:function(){return!0},compare:function(a,b){return a.localeCompare(b)}}]),setTimeout(e.init,0),"function"==typeof define&&define.amd?define(function(){return e}):"undefined"!=typeof exports?module.exports=e:window.Sortable=e}).call(this);
+
+
+var map = L.map('map', {
+    zoom: 5,
+    //minZoom:9,
+    center: new L.latLng([50, 12]),
+    layers: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+    layers: [
+        L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+            subdomains: 'abcd',
+            maxZoom: 19
+        })
+    ]
+});
+
+
+// Create legend (with colorscale):
+var legend = L.control({position: 'topright'});
+legend.onAdd = function (map) {
+    var div = L.DomUtil.create('div', 'info legend');
+    div.innerHTML = `Circle: event<br/>Triangle: stations (click for details)<br/>&Delta;Me: ${residualsFullScale[0]} `;
+    // display the colorbar as a series of spans, first negative scale then positive scale
+    var colorScaleSteps = 4;  // number of spans will be 2 times this (negative+positive) plus the color for 0
+    for (var i=0; i< colorScaleSteps; i++){
+        var val = residualsFullScale[0] + i*Math.abs(residualsFullScale[0])/colorScaleSteps;
+        div.innerHTML += `<span style="display:inline-block;height:.5rem;width:.5rem;border-bottom: 1px solid black;background-color:${getColor(val)}"></span>`;
+    }
+    div.innerHTML += `<span style="display:inline-block;height:.5rem;width:.5rem;border-bottom: 1px solid black;background-color:${getColor(0)}"></span>`;
+    for (var i=0; i< colorScaleSteps; i++){
+        var val = (i+1)*Math.abs(residualsFullScale[1])/colorScaleSteps;
+        div.innerHTML += `<span style="display:inline-block;height:.5rem;width:.5rem;border-bottom: 1px solid black;background-color:${getColor(val)}"></span>`;
+    }
+    div.innerHTML += ` ${residualsFullScale[1]}`;
+    return div;
+};
+legend.addTo(map);
+
+
+function showMap(index){
+    // get event info (quick and dirt, from table):
+    var tr = document.querySelector('table').children[1].children[index];
+    var evId = parseFloat(tr.children[0].textContent);
+    var evLat = parseFloat(tr.children[2].textContent);
+    var evLon = parseFloat(tr.children[3].textContent);
+
+
+    document.querySelector('#map').style.visibility='visible';
+    document.querySelector('#map_header').style.visibility='visible';
+    document.querySelector('#map_header').innerHTML = `Stations details (Event id: ${evId})`;
+
+   map.eachLayer(function (layer) {
+        if (layer instanceof L.FeatureGroup){
+            map.removeLayer(layer);
+        }
+    });
+    var stas = stations[index];
+    var [min, max] = [null, null];
+    var markers = stas.map(function(element){
+        var latLng = [element[0], element[1]];
+        var options = {
+            marker: '^',
+            size: 5,
+            weight: 1,  // border width
+            fillColor: getColor(element[3]),
+            fillOpacity: 1,
+            color: '#999999',
+            opacity: 1
+        };
+        var popupContent = `Station: ${element[2]}<br>Me residual: ${element[3].toFixed(3)}`;
+        return L.polyMarker(latLng, options).bindPopup(popupContent);
+    });
+    // Add event marker (circle):
+    markers.push(L.circleMarker([evLat, evLon], {weight:1, color:'black', fillColor:'#555', fillOpacity: 1, radius: 7}));
+    var featureGroup = L.featureGroup(markers).addTo(map);
+    // zoom to markers for a better display:
+    map.fitBounds(featureGroup.getBounds());
+}
 </script>

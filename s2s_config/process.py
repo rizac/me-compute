@@ -385,6 +385,7 @@ def main(segment, config):
         'channel': segment.channel.channel,
         'location': segment.channel.location,
         'ev_id': segment.event.id,
+        'ev_evid': segment.event.event_id,  # catalog id
         'ev_time': segment.event.time,
         'ev_lat': segment.event.latitude,
         'ev_lon': segment.event.longitude,

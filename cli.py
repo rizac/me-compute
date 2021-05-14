@@ -4,6 +4,7 @@ on the terminal
 """
 # import sys
 # import yaml
+import json
 import sys
 from datetime import datetime, date, timedelta
 # from sqlalchemy.sql.functions import max as sqlmax, min as sqlmin
@@ -270,16 +271,20 @@ def report(input):
         output, ext = splitext(fle)
         try:
             with open(output + '.html', 'w') as _:
-                data = [_ for _ in get_report_rows(fle)]
-                _.write(template.render(title=title, data=data, description=desc,
-                                        filename=basename(fle)))
+                # data = [_ for _ in get_report_rows(fle)]
+                evts, stas = [], []
+                for evts_, stas_ in get_report_rows(fle):
+                    evts.append(evts_)
+                    stas.append(stas_)
+                _.write(template.render(title=title, data=evts, description=desc,
+                                        filename=basename(fle),
+                                        stations=json.dumps(stas, separators=(',', ':'))))
                 # if at least one report is generated, return 0 at the end. Thus:
                 ret = 0
         except Exception as exc:
             print('ERROR generating %s: %s' % (output, str(exc)))
 
     sys.exit(ret)
-
 
 
 if __name__ == '__main__':

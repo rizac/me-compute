@@ -88,6 +88,8 @@ def get_report_rows(hdf_path):
 
     for ev_id, df_ in dfr.groupby('ev_id'):
 
+        group_sta = df_.groupby(['network', 'station'])
+
         row = {  # we are working in python 3.6.9+, order is preserved
             'event id': ev_id,
             # df_ has all event related columns made of 1 unique value, so take 1st:
@@ -96,18 +98,29 @@ def get_report_rows(hdf_path):
             'lon': df_.ev_lon.iat[0],
             'depth km': df_.ev_dep.iat[0],
             'time': df_.ev_time.iat[0].isoformat('T'),
-            'stations': df_.groupby(['network', 'station']).ngroups
+            'stations': group_sta.ngroups
         }
 
         values = np.asarray(df_.me_st.values)
         anomalyscores = np.asarray(df_.aascore.values)
 
         row.update(Stats.Me.compute(values))
+        me_st_mean = row['Me mean']
         row.update(Stats.Me_p.compute(values))
         row.update(Stats.Me_w.compute(values, anomalyscores))
         row.update(Stats.Me_w2.compute(values, anomalyscores))
 
-        yield {k.replace(' ', '<br/>'): v for k, v in row.items()}
+        stas = []
+        for (net, sta), sta_df in group_sta:
+            lat = np.round(sta_df['st_lat'].iat[0], 3)
+            lon = np.round(sta_df['st_lon'].iat[0], 3)
+            res = sta_df['me_st'].iat[0] - me_st_mean
+            stas.append([lat if np.isfinite(lat) else None,
+                         lon if np.isfinite(lon) else None,
+                         net + '.' + sta,
+                         res if np.isfinite(res) else None])
+
+        yield {k.replace(' ', '<br/>'): v for k, v in row.items()}, stas
         # yield row
 
 

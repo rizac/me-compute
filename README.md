@@ -56,3 +56,14 @@ If you want to run a cronjob, edit download.sh (modify venv name)
 ```
 s2s process ./download.private.yaml
 ```
+
+
+### Generate HTML report
+
+```
+<VENV_PATH>/bin/python <MECOMPUTE_REPO>/stream2segment/cli.py report -c <MECOMPUTE_REPO>/s2s_config/download.private.yaml
+```
+
+
+Generate test report: Run `test_workflow::test_report` and inspect
+`test/data/process.result.multievent.html`
