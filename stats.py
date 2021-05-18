@@ -93,6 +93,7 @@ def get_report_rows(hdf_path):
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
         row = {  # we are working in python 3.6.9+, order is preserved
             'event id': ev_id,
+            # 'GEOFON event id': df_.ev_evid.iat[0],
             # df_ has all event related columns made of 1 unique value, so take 1st:
             'mag': df_.ev_mag.iat[0],
             'lat': df_.ev_lat.iat[0],
@@ -106,7 +107,7 @@ def get_report_rows(hdf_path):
         anomalyscores = np.asarray(df_.aascore.values)
 
         row.update(Stats.Me.compute(values))
-        me_st_mean = row['Me mean']
+        me_st_mean = row['Me M']
         row.update(Stats.Me_p.compute(values))
         row.update(Stats.Me_w.compute(values, anomalyscores))
         row.update(Stats.Me_w2.compute(values, anomalyscores))
@@ -123,10 +124,6 @@ def get_report_rows(hdf_path):
 
         yield ev_id, {k: v for k, v in row.items()}, stas
         # yield row
-
-
-def create_html(hdf_path):
-    pass
 
 
 class Score2Weight:
@@ -221,4 +218,4 @@ def avg_std_count(values, weights=None, na_repr=None, round=None):
         if round is not None:
             mean = np.round(mean, round)
             std = np.round(std, round)
-    return {'mean': mean, 'stddev': std, 'count': count}
+    return {'M': mean, 'SD': std, '#': count}

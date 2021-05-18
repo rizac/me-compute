@@ -282,7 +282,7 @@ def report(input):
                 # if at least one report is generated, return 0 at the end. Thus:
                 ret = 0
         except Exception as exc:
-            print('ERROR generating %s: %s' % (output, str(exc)))
+            print('ERROR generating %s: %s' % (output, str(exc)), file=sys.stderr)
 
     sys.exit(ret)
 
