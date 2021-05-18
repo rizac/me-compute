@@ -126,6 +126,10 @@ def get_report_rows(hdf_path):
         }
 
         values = np.asarray(df_.me_st.values)
+
+        if not np.isfinite(values).any():
+            continue
+
         anomalyscores = np.asarray(df_.aascore.values)
 
         row.update(Stats.Me.compute(values))
