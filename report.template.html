@@ -17,7 +17,7 @@
 
     <script type='text/javascript' src='https://cdn.jsdelivr.net/gh/rizac/leaflet-poly-marker/polymarker.min.js'></script>
 
-    <!-- custom style (bootstrap is not used) -->
+    <!-- Layout related style (necessary): -->
     <style type="text/css">
         body{
             padding: 0px;
@@ -31,18 +31,6 @@
         }
         th{vertical-align: top; cursor: pointer;}
         td{text-align:right}
-        .desc{
-            text-align:justify;
-            position:fixed;
-            padding:1rem;
-            top: 4rem;
-            right:.5rem;
-            line-height:2rem;
-            max-width:33vw;
-            max-height: 50vh;
-            overflow: auto;
-            z-index: 1000;
-        }
         #map {
             flex: 1 0 auto;
             margin-bottom:.5rem;
@@ -75,7 +63,29 @@
             background-color: lightgoldenrodyellow;
             {%- endif -%}
         }
+        .header{
+            position: relative;
+            text-align: center;
+        }
+        #legend-btn{
+            position: absolute;
+            right: 0;
+            bottom:0;
+        }
+        .desc{
+            text-align:justify;
+            position:fixed;
+            padding:1rem;
+            top: 5rem;
+            right:.5rem;
+            line-height:2rem;
+            max-width:33vw;
+            max-height: 50vh;
+            overflow: auto;
+            z-index: 1000;
+        }
     </style>
+    <!-- appearance style (important, not necessary): -->
     <style>
         body{
             font-family: 'Open Sans', Arial, Helvetica, 'Ubuntu Mono', sans-serif !important;
@@ -99,11 +109,18 @@
             border-bottom: 1px solid #CCC;
             padding: 0.5rem;
         }
-        #map{
+        #map, .table-div{
             border: 1px solid #CCC;
-        }
-        #map{
             margin-top:1rem;
+        }
+        .leaflet-container {
+            font: inherit;
+        }
+        button.btn:focus {
+            outline: none;
+            box-shadow: none;
+            box-shadow: none !important;
+            /*border: solid 1px red( any color ) !important;*/
         }
     </style>
 
@@ -111,10 +128,10 @@
 
 </head>
 <body class="d-flex flex-column">
-<div class="legend d-flex flex-row align-items-baseline">
-    <span>{{ title }}</span>
-    <span style="flex: 10 auto"></span>
-    <button id="legend-btn" class='btn btn-link btn-sm' onclick="setShowLegend()">Legend</button>
+<div class="header">
+    <span>{{ title }} ({{ data | length }} event{%- if data | length != 1 -%}s{%- endif -%})</span>
+<!--    <span style="flex: 10 auto"></span>-->
+    <button id="legend-btn" class='btn btn-link btn-sm' onclick="setShowLegend()"></button>
     <div class="desc">
         {%- for key, val in description.items() -%}
         <b>{{key}}</b>: {{val}}
@@ -123,7 +140,7 @@
         (<b>M</b>: mean <b>SD</b>: Standard deviation, <b>#</B>: number of waveforms used)
     </div>
 </div>
-<div class="main-div d-flex flex-column align-items-center" style="margin-top:1rem">
+<div class="main-div d-flex flex-column align-items-center">
     <div class="table-div">
         <table {% if data | length > 1 -%}data-sortable{%- endif %} style="border-collapse: collapse;">
             <thead>
@@ -194,7 +211,7 @@ function setShowLegend(value){
         value = !visible;
     }
     desc.style.display = value ? '': 'none';
-    document.querySelector('#legend-btn').innerHTML = value ? 'Hide Legend' : 'Legend';
+    document.querySelector('#legend-btn').innerHTML = value ? 'Hide details' : 'Column details';
 }
 setShowLegend(false);
 
@@ -306,7 +323,7 @@ function showMap(event_id){
 
     // repopulate map with new event and stations.
     // First put everything into a 'markers' Array:
-    var SIZE = 8;
+    var SIZE = 12;
     var stas = stations[event_id];
     var [minLng, maxLng] = [null, null];
     var markers = stas.map(function(element){
@@ -315,29 +332,64 @@ function showMap(event_id){
         if ((minLng === null) || (minLng > latLng[1])){minLng = latLng[1];}
         if ((maxLng === null) || (maxLng < latLng[1])){maxLng = latLng[1];}
 
+        var distDeg = element[4];
         var options = {
             marker: '^',
-            size: SIZE,
+            radius: SIZE,
             weight: 1,  // border width
             fillColor: getColor(element[3]),
             fillOpacity: 1,
             color: '#666666',
-            opacity: 1
+            opacity: 1,
+            _options4Circle: [L.latLng(evLat, evLon), L.latLng(...latLng)]
         };
         var deltaMe = element[3];
         if (typeof deltaMe === 'number'){
             deltaMe = deltaMe.toFixed(3);
         }
-        var popupContent = `Station: ${element[2]}<br>Me residual: ${deltaMe}`;
-        return L.polyMarker(latLng, options).bindPopup(popupContent);
+
+        var popupContent = `<table><tr><td>Station</td><td><b>${element[2]}</b></td></tr><tr><td>&Delta; Me</td><td>${deltaMe}</td></tr><tr><td>Event distance</td><td>${distDeg}&deg;</td></tr></table>`;
+        polyMarker = L.polyMarker(latLng, options).bindPopup(popupContent);
+        /* polyMarker.on('popupopen', function(ev) {
+            var options4Circle = ev.sourceTarget.options._options4Circle;
+            var map = ev.sourceTarget._map;
+            if (options4Circle && map){
+                var [latLng1, latLng2] = options4Circle;
+                var dist = map.distance(latLng1, latLng2);
+                L.circle(latLng1, {radius: dist, fillOpacity:0, dashArray: "5 5", weight: 1, color: '#666', _isDistanceCircle: true}).addTo(map);
+                L.circle(latLng1, {radius: latLng1.distanceTo(latLng2), fillOpacity:0, dashArray: "5 5", weight: 1, color: 'red', _isDistanceCircle: true}).addTo(map);
+
+                var [pt1, pt2] = [map.latLngToLayerPoint(latLng1), map.latLngToLayerPoint(latLng1)];
+
+            }
+        });
+        polyMarker.on('popupclose', function(ev) {
+            var map = ev.sourceTarget._map;
+            if(map){
+                map.eachLayer(elm => {
+                    if ((elm instanceof L.Circle) && elm.options._isDistanceCircle){
+                        elm.remove();
+                    }
+                });
+            }
+        });
+        */
+        return polyMarker;
     });
 
     // Add event (beach ball icon):
-    var greenIcon = L.icon({
+    var beachBallIcon = L.icon({
         iconUrl: `https://geofon.gfz-potsdam.de/data/alerts/${new Date(Date.parse(evTime + 'Z')).getFullYear()}/${catalogID}/bb.png`,
-        iconSize:  SIZE*4, // icon size. When specified, icon is centered and iconAnchor property can be missing
+        iconSize:  SIZE*3, // icon size. When specified, icon is centered and iconAnchor property can be missing
     });
-    markers.push(L.marker([evLat, adjustLng(evLon)], {icon: greenIcon}));
+    var evtLatLng = L.latLng(evLat, adjustLng(evLon));
+    markers.push(L.marker(evtLatLng, {icon: beachBallIcon}));
+    /*for (var degrees of [20, 40, 60, 80]){
+        var latLng2 = L.latLng(evtLatLng.lat, evtLatLng.lng + degrees);
+        var dist = map.distance(evtLatLng, latLng2);
+        var distanceCircle = L.circle(evtLatLng, {radius: dist, fillOpacity:0, dashArray: "5 5", weight: 1, color: '#666'});
+        markers.push(distanceCircle);
+    }*/
 
     // Add event ("normal" circle, uncomment for debugging purposes):
     // markers.push(L.circleMarker([evLat, adjustLng(evLon)], {weight:1, color:'black', fillColor:'#555', fillOpacity: 1, radius: 7}));
@@ -359,6 +411,7 @@ function showMap(event_id){
         }, 100);
     }
 }
+
 
 {%- if data | length > 0 -%}
 showMap({{ data[0]["event id"] }});

@@ -267,7 +267,7 @@ def report(input):
     desc = Stats.as_help_dict()
     ret = 1
     for fle in input:
-        title = basename(fle)
+        title = splitext(basename(fle))[0]
         output, ext = splitext(fle)
         try:
             evts, stas = [], {}

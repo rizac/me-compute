@@ -139,10 +139,12 @@ def get_report_rows(hdf_path):
             lat = np.round(sta_df['st_lat'].iat[0], 3)
             lon = np.round(sta_df['st_lon'].iat[0], 3)
             res = sta_df['me_st'].iat[0] - me_st_mean
+            dist_deg = np.round(sta_df['dist_deg'].iat[0], 3)
             stas.append([lat if np.isfinite(lat) else None,
                          lon if np.isfinite(lon) else None,
                          net + '.' + sta,
-                         res if np.isfinite(res) else None])
+                         res if np.isfinite(res) else None,
+                         dist_deg if np.isfinite(dist_deg) else None])
 
         yield ev_id, {k: v for k, v in row.items()}, stas
         # yield row
