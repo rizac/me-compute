@@ -29,11 +29,6 @@
             margin-left: 0.5rem;
             margin-right: 0.5rem;
         }
-        th, td{
-            border-top: 1px solid #CCC;
-            border-bottom: 1px solid #CCC;
-            padding: 0.5rem;
-        }
         th{vertical-align: top; cursor: pointer;}
         td{text-align:right}
         .desc{
@@ -75,21 +70,15 @@
         table td button {
             width: 100%;
         }
-        tr.selected{
-            border: 2px solid chocolate;
+        tr.selected{ /* this class is populated only if we have more than one event to highlight the selected one */
+            {%- if data | length > 1 -%}
+            background-color: lightgoldenrodyellow;
+            {%- endif -%}
         }
     </style>
     <style>
         body{
             font-family: 'Open Sans', Arial, Helvetica, 'Ubuntu Mono', sans-serif !important;
-        }
-        .title{
-            background-color: #DDC;
-            width: max-content;
-            padding: .5rem;
-            border-radius: 5px;
-            margin-bottom: 1rem;
-            margin-top: 0px;q:
         }
         div.leaflet-container {
             background: none;
@@ -101,13 +90,20 @@
             z-index: 10000;
         }
         /* Styling columns by measure group (currently 4 groups, 3 columns per group)*/
-        th:nth-child(6n+8), th:nth-child(6n + 9), th:nth-child(6n + 10),
-        td:nth-child(6n+8), td:nth-child(6n + 9), td:nth-child(6n + 10){
-            background-color: #EEEEEE;
+        th:nth-child(6n+9), td:nth-child(6n+9),
+        th:nth-child(6n+12), td:nth-child(6n+12){
+            border-left: 1px solid #CCC !important;
         }
-        th:nth-child(6n+11), th:nth-child(6n + 12), th:nth-child(6n + 13),
-        td:nth-child(6n+11), td:nth-child(6n + 12), td:nth-child(6n + 13){
-            background-color: #DDDDDD;
+        th, td{
+            border-top: 1px solid #CCC;
+            border-bottom: 1px solid #CCC;
+            padding: 0.5rem;
+        }
+        #map{
+            border: 1px solid #CCC;
+        }
+        #map{
+            margin-top:1rem;
         }
     </style>
 
@@ -115,10 +111,10 @@
 
 </head>
 <body class="d-flex flex-column">
-<div class="header">
-    <div style="display:flex">
-        <span class="title">{{title}}</span> <span style="flex:1 0 auto"></span> <button id="legend-btn" class='btn btn-link' onclick="setShowLegend()">Legend</button>
-    </div>
+<div class="legend d-flex flex-row align-items-baseline">
+    <span>{{ title }}</span>
+    <span style="flex: 10 auto"></span>
+    <button id="legend-btn" class='btn btn-link btn-sm' onclick="setShowLegend()">Legend</button>
     <div class="desc">
         {%- for key, val in description.items() -%}
         <b>{{key}}</b>: {{val}}
@@ -127,13 +123,13 @@
         (<b>M</b>: mean <b>SD</b>: Standard deviation, <b>#</B>: number of waveforms used)
     </div>
 </div>
-<div class="main-div d-flex flex-column align-items-center">
+<div class="main-div d-flex flex-column align-items-center" style="margin-top:1rem">
     <div class="table-div">
-        <table data-sortable style="border-collapse: collapse;">
+        <table {% if data | length > 1 -%}data-sortable{%- endif %} style="border-collapse: collapse;">
             <thead>
                 <tr>
                     {%- for key in data[0].keys() -%}
-                        <th>{{key}}</th> <!-- key | replace(" ", "<br>") -->
+                        <th>{{key | replace(" ", "<br>")}}</th> <!--  -->
                     {%- endfor -%}
                 </tr>
             </thead>
@@ -145,6 +141,12 @@
                         <td>
                         {%- if key == 'stations' -%}
                         <button class='btn btn-link' onclick="showMap({{ event_id }})">{{value}}</button>
+                        {%- elif key == 'catalog id' -%}
+                            {%- if value -%}
+                                <a href="http://geofon.gfz-potsdam.de/eqinfo/event.php?id={{value}}" target="'_blank">{{value}}</a>
+                            {%- else -%}
+                                {{value}}
+                            {%- endif -%}
                         {%- else -%}
                         {{value}}
                         {%- endif -%}
@@ -156,7 +158,7 @@
         </table>
     </div>
     <div class="side-div d-flex flex-column">
-        <h4 id="map_header"></h4>
+<!--        <h4 id="map_header"></h4>-->
         <div id="map"></div>
     </div>
 
@@ -228,8 +230,8 @@ var map = L.map('map', {
     center: new L.latLng([50, 12]),
     layers: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
     layers: [
-        L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_nolabels/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="http://cartodb.com/attributions">CartoDB</a>',
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 19
         })
@@ -241,7 +243,7 @@ var map = L.map('map', {
 var legend = L.control({position: 'topright'});
 legend.onAdd = function (map) {
     var div = L.DomUtil.create('div', 'info legend');
-    div.innerHTML = `Circle: event<br/>Triangle: stations (click for details)<br/>&Delta;Me: ${residualsFullScale[0]} `;
+    div.innerHTML = `&Delta;Me: ${residualsFullScale[0]} `;
     // display the colorbar as a series of spans, first negative scale then positive scale
     var colorScaleSteps = 4;  // number of spans will be 2 times this (negative+positive) plus the color for 0
     for (var i=0; i< colorScaleSteps; i++){
@@ -253,7 +255,7 @@ legend.onAdd = function (map) {
         var val = (i+1)*Math.abs(residualsFullScale[1])/colorScaleSteps;
         div.innerHTML += `<span style="display:inline-block;height:.5rem;width:.5rem;border-bottom: 1px solid black;background-color:${getColor(val)}"></span>`;
     }
-    div.innerHTML += ` ${residualsFullScale[1]}`;
+    div.innerHTML += ` ${residualsFullScale[1]} (click on stations for details)`;
     return div;
 };
 legend.addTo(map);
@@ -279,39 +281,47 @@ function showMap(event_id){
         }
     });
 
-    var evLat = parseFloat(eventTr.children[2].textContent);
-    var evLon = parseFloat(eventTr.children[3].textContent);
+    var evLat = parseFloat(eventTr.children[3].textContent);
+    var evLon = parseFloat(eventTr.children[4].textContent);
+    var catalogID = ('' + (eventTr.children[1].textContent)).trim();
+    var evTime = ('' + (eventTr.children[6].textContent)).trim();
 
-    document.querySelector('#map').style.visibility='visible';
-    document.querySelector('#map_header').style.visibility='visible';
-    document.querySelector('#map_header').innerHTML = `Stations details (Event id: ${event_id})`;
+    // Leaflet centers on the meridian (Greenwich), so that if an event is
+    // close to the maop borders ( <-90 or > 90 deg longitude), stations might appear
+    // far left or far right, whereas they should be grouped together around the event.
+    // Solution in this case happens to make coordinates in [0, 360]: // https://stackoverflow.com/a/38824652
+    // define a adjust Coords function no-op by default.
+    var adjustLng = elm => elm ;
+    // then, if coordinates have to be shifted (event is closer to the antimeridian):
+    if ((evLon < -90) || (evLon > 90)){
+        adjustLng = elm => elm < 0 ? elm+360 : elm;
+    }
 
-
+    // clear map:
     map.eachLayer(function (layer) {
         if (layer instanceof L.FeatureGroup){
             map.removeLayer(layer);
         }
     });
+
+    // repopulate map with new event and stations.
+    // First put everything into a 'markers' Array:
+    var SIZE = 8;
     var stas = stations[event_id];
     var [minLng, maxLng] = [null, null];
     var markers = stas.map(function(element){
-        var latLng = [element[0], element[1]];
-        if ((evLon < -90) || (evLon > 90)){
-            // https://stackoverflow.com/a/38824652
-            if (latLng[1] < 0){
-                latLng[1] += 360;
-            }
-        }
+        var latLng = [element[0], adjustLng(element[1])];
+
         if ((minLng === null) || (minLng > latLng[1])){minLng = latLng[1];}
         if ((maxLng === null) || (maxLng < latLng[1])){maxLng = latLng[1];}
 
         var options = {
             marker: '^',
-            size: 5,
+            size: SIZE,
             weight: 1,  // border width
             fillColor: getColor(element[3]),
             fillOpacity: 1,
-            color: '#999999',
+            color: '#666666',
             opacity: 1
         };
         var deltaMe = element[3];
@@ -321,11 +331,21 @@ function showMap(event_id){
         var popupContent = `Station: ${element[2]}<br>Me residual: ${deltaMe}`;
         return L.polyMarker(latLng, options).bindPopup(popupContent);
     });
-    // Add event marker (circle):
-    markers.push(L.circleMarker([evLat, evLon], {weight:1, color:'black', fillColor:'#555', fillOpacity: 1, radius: 7}));
+
+    // Add event (beach ball icon):
+    var greenIcon = L.icon({
+        iconUrl: `https://geofon.gfz-potsdam.de/data/alerts/${new Date(Date.parse(evTime + 'Z')).getFullYear()}/${catalogID}/bb.png`,
+        iconSize:  SIZE*4, // icon size. When specified, icon is centered and iconAnchor property can be missing
+    });
+    markers.push(L.marker([evLat, adjustLng(evLon)], {icon: greenIcon}));
+
+    // Add event ("normal" circle, uncomment for debugging purposes):
+    // markers.push(L.circleMarker([evLat, adjustLng(evLon)], {weight:1, color:'black', fillColor:'#555', fillOpacity: 1, radius: 7}));
+
+    // Create featuresGroup:
     var featureGroup = L.featureGroup(markers, {noWrap: true}).addTo(map);
 
-    // center to event:
+    // center to event (not needed, zoom below is sufficient):
     // map.panTo(new L.LatLng(evLat, evLon));
 
     // zoom to markers for a better display:
@@ -339,4 +359,8 @@ function showMap(event_id){
         }, 100);
     }
 }
+
+{%- if data | length > 0 -%}
+showMap({{ data[0]["event id"] }});
+{%- endif -%}
 </script>

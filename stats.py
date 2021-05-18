@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from os.path import join, dirname
 
 import pandas as pd
 import numpy as np
@@ -7,6 +8,11 @@ import sys
 
 
 from enum import Enum
+
+from stream2segment.download.db import get_session
+from stream2segment.io import yaml_load
+from stream2segment.io.db import close_session
+from stream2segment.download.db.models import Event
 
 pct = (5, 95)  # percentiles
 ROUND = 2  # round to be used in mean and stdev. Set to None for no rounding
@@ -86,6 +92,21 @@ def get_report_rows(hdf_path):
     # 'integral' = corrected_spectrum_int_vel_square
     dfr = pd.read_hdf(hdf_path)
 
+    # fetch event ids from the event catalog:
+    evid2catalogid = {}
+    try:
+        sess = get_session(
+            yaml_load(join(dirname(__file__), 's2s_config', 'download.private.yaml'))[
+                'dburl'])
+        evid2catalogid = {item[0]: item[1] for item in
+                          sess.query(Event.id, Event.event_id).
+                              filter(Event.id.in_(dfr.ev_id.tolist()))}
+    except Exception as exc:
+        raise ValueError('Unable to fetch data from db (%s): %s' %
+                         (exc.__class__.__name__, str(exc)))
+    finally:
+        close_session(sess)
+
     for ev_id, df_ in dfr.groupby('ev_id'):
 
         group_sta = df_.groupby(['network', 'station'])
@@ -93,9 +114,10 @@ def get_report_rows(hdf_path):
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
         row = {  # we are working in python 3.6.9+, order is preserved
             'event id': ev_id,
+            'catalog id': evid2catalogid.get(ev_id, 'n/a'),
             # 'GEOFON event id': df_.ev_evid.iat[0],
             # df_ has all event related columns made of 1 unique value, so take 1st:
-            'mag': df_.ev_mag.iat[0],
+            'Mw': df_.ev_mag.iat[0],
             'lat': df_.ev_lat.iat[0],
             'lon': df_.ev_lon.iat[0],
             'depth km': df_.ev_dep.iat[0],

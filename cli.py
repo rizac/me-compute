@@ -270,12 +270,13 @@ def report(input):
         title = basename(fle)
         output, ext = splitext(fle)
         try:
+            evts, stas = [], {}
+            for evid, evt_stats, stations in get_report_rows(fle):
+                evts.append(evt_stats)
+                stas[evid] = stations
+            if not evts:
+                continue
             with open(output + '.html', 'w') as _:
-                # data = [_ for _ in get_report_rows(fle)]
-                evts, stas = [], {}
-                for evid, evt_stats, stations in get_report_rows(fle):
-                    evts.append(evt_stats)
-                    stas[evid] = stations
                 _.write(template.render(title=title, data=evts, description=desc,
                                         filename=basename(fle),
                                         stations=json.dumps(stas, separators=(',', ':'))))
