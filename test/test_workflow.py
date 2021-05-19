@@ -127,18 +127,19 @@ def test_run_real():
 
 def test_report():
     rootdir = dirname(TMP_TEST_DATA_DIRS[0])
-    input = join(rootdir, 'process.result.multievent.hdf')
-    output = input.replace('.hdf', '.html')
+    for fname in ('process.result.singleevent.hdf', 'process.result.multievent.hdf'):
+        input = join(rootdir, fname)
+        output = input.replace('.hdf', '.html')
 
-    if isfile(output):
-        os.remove(output)
-    assert not isfile(output)
+        if isfile(output):
+            os.remove(output)
+        assert not isfile(output)
 
-    runner = CliRunner()
+        runner = CliRunner()
 
-    result = runner.invoke(cli, ['report', input])
-    assert not result.exception
-    assert isfile(output)
+        result = runner.invoke(cli, ['report', input])
+        assert not result.exception
+        assert isfile(output)
 
 
 def test_weighter():
