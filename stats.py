@@ -109,6 +109,9 @@ def get_report_rows(hdf_path):
 
     for ev_id, df_ in dfr.groupby('ev_id'):
 
+        if ev_id == 90:
+            asd = 9
+
         group_sta = df_.groupby(['network', 'station'])
 
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
@@ -231,9 +234,9 @@ def avg_std_count(values, weights=None, na_repr=None, round=None):
     """
     # we use np.average because it supports weights, but contrarily to np.mean it
     # does not have a 'nanaverage' counterpart. So:
-    indices = ~np.isnan(values)
+    indices = np.isfinite(values)
     if weights is not None:
-        indices &= ~np.isnan(weights)
+        indices &= np.isfinite(weights)
         weights = weights[indices]
     values = values[indices]
 
