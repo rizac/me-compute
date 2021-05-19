@@ -10,7 +10,7 @@ from click.testing import CliRunner
 from numpy.compat import os_PathLike
 
 from cli import ResultDir, process, cli  #, convert, todatetime
-
+from stats import ParabolicScore2Weight, LinearScore2Weight
 
 TESTDATA_DIR = join(dirname(__file__), 'data')
 S2SCONFIG_DIR = join(dirname(dirname(__file__)), 's2s_config')
@@ -139,3 +139,14 @@ def test_report():
     result = runner.invoke(cli, ['report', input])
     assert not result.exception
     assert isfile(output)
+
+
+def test_weighter():
+    """Tests scores to weight converters by assuring an array of increasing scores
+    is converted in an array of non-increasing weights
+    """
+    import numpy as np
+    scores = np.arange(0.4, 0.9, 0.1)
+    for cls in (LinearScore2Weight, ParabolicScore2Weight):
+        values = cls.convert(scores)
+        assert (np.diff(values) <= 0).all()

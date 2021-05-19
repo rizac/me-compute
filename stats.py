@@ -222,10 +222,12 @@ class ParabolicScore2Weight(Score2Weight):
         # decreasing parabolically. The fitting parabola has vertex in (0.5, 1)
         # and passes through (maxscore, 0)
         # the coefficients (calculated manually) are:
-        a = 1. / (maxscore**2 - maxscore + 0.25)
-        b = -a
-        c = 1. + a/4.0
-        return a * scores**2 + b * scores + c
+        b = 1. / (maxscore**2 - maxscore + 0.25)
+        a = -b
+        c = 1. - b/4.0
+        weights = a * scores**2 + b * scores + c
+        weights[scores <= 0.5] = 1.
+        return weights
 
 
 def avg_std_count(values, weights=None, na_repr=None, round=None):
