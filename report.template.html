@@ -29,8 +29,6 @@
             margin-left: 0.5rem;
             margin-right: 0.5rem;
         }
-        th{vertical-align: top; cursor: pointer;}
-        td{text-align:right}
         #map {
             flex: 1 0 auto;
             margin-bottom:.5rem;
@@ -58,11 +56,7 @@
         table td button {
             width: 100%;
         }
-        tr.selected{ /* this class is populated only if we have more than one event to highlight the selected one */
-            {%- if data | length > 1 -%}
-            background-color: lightgoldenrodyellow;
-            {%- endif -%}
-        }
+        tr.selected{} /* this class is overwritten below only if we have more than one event to highlight the selected one */
         .header{
             position: relative;
             text-align: center;
@@ -122,6 +116,20 @@
             box-shadow: none !important;
             /*border: solid 1px red( any color ) !important;*/
         }
+        th {
+            vertical-align: top;
+        }
+        td {
+            text-align:right
+        }
+        {%- if events | length > 1 -%}
+        tr.selected{
+            background-color: lightgoldenrodyellow;
+        }
+        th, td {
+            cursor: pointer;
+        }
+        {%- endif -%}
     </style>
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
@@ -129,8 +137,7 @@
 </head>
 <body class="d-flex flex-column">
 <div class="header">
-    <span>{{ title }} ({{ data | length }} event{%- if data | length != 1 -%}s{%- endif -%})</span>
-<!--    <span style="flex: 10 auto"></span>-->
+    <span>{{ title }} ({{ events | length }} event{%- if events | length != 1 -%}s{%- endif -%})</span>
     <button id="legend-btn" class='btn btn-link btn-sm' onclick="setShowLegend()"></button>
     <div class="desc">
         {%- for key, val in description.items() -%}
@@ -142,46 +149,40 @@
 </div>
 <div class="main-div d-flex flex-column align-items-center">
     <div class="table-div">
-        <table {% if data | length > 1 -%}data-sortable{%- endif %} style="border-collapse: collapse;">
+        <table {% if events | length > 1 -%} data-sortable {%- endif %} style="border-collapse: collapse;">
             <thead>
                 <tr>
-                    {%- for key in data[0].keys() -%}
+                    {%- for key in events[0].keys() -%}
                         <th>{{key | replace(" ", "<br>")}}</th> <!--  -->
                     {%- endfor -%}
                 </tr>
             </thead>
             <tbody>
-            {%- for row in data -%}
-                {% set event_id = row["event id"] %}
-                <tr>
-                    {%- for key, value in row.items() -%}
-                        <td>
-                        {%- if key == 'stations' -%}
-                        <button class='btn btn-link' onclick="showMap({{ event_id }})">{{value}}</button>
-                        {%- elif key == 'catalog id' -%}
+            {%- for eventDict in events -%}
+                {% set event_id = eventDict["event id"] %}
+                <tr {% if events | length > 1 -%} onclick="showMap({{ event_id }})" {%- endif -%}>
+                    {%- for key, value in eventDict.items() -%}
+                        {%- if key == 'catalog id' -%}
+                            <td>
                             {%- if value -%}
-                                <a href="http://geofon.gfz-potsdam.de/eqinfo/event.php?id={{value}}" target="'_blank">{{value}}</a>
+                                <a onclick="event.stopPropagation()" href="http://geofon.gfz-potsdam.de/eqinfo/event.php?id={{value}}" target="_blank">{{value}}</a>
                             {%- else -%}
-                                {{value}}
+                                N/A
                             {%- endif -%}
+                            </td>
                         {%- else -%}
-                        {{value}}
+                        <td>{{value}} </td>
                         {%- endif -%}
-                        </td>
                     {%- endfor -%}
                 </tr>
-            {%- endfor -%}
+            {%- endfor %}
             </tbody>
         </table>
     </div>
     <div class="side-div d-flex flex-column">
-<!--        <h4 id="map_header"></h4>-->
         <div id="map"></div>
     </div>
-
 </div>
-</body>
-</html>
 
 
 <script type="text/javascript">
@@ -277,11 +278,6 @@ legend.onAdd = function (map) {
 };
 legend.addTo(map);
 
-// problems in showing the map. It happens only after zooming. We implement an
-// invalidate size flag so we can execute once the map.invalidateSize (see end of setMap below):
-// For details: https://github.com/Leaflet/Leaflet/issues/3002#issuecomment-93836022
-var _mapInvalidateSize = true;
-
 function showMap(event_id){
     // get event info (quick and dirt, from table):
     var tableRows = document.querySelector('table').children[1].children;  // children[1] => tbody
@@ -349,32 +345,7 @@ function showMap(event_id){
         }
 
         var popupContent = `<table><tr><td>Station</td><td><b>${element[2]}</b></td></tr><tr><td>&Delta; Me</td><td>${deltaMe}</td></tr><tr><td>Event distance</td><td>${distDeg}&deg;</td></tr></table>`;
-        polyMarker = L.polyMarker(latLng, options).bindPopup(popupContent);
-        /* polyMarker.on('popupopen', function(ev) {
-            var options4Circle = ev.sourceTarget.options._options4Circle;
-            var map = ev.sourceTarget._map;
-            if (options4Circle && map){
-                var [latLng1, latLng2] = options4Circle;
-                var dist = map.distance(latLng1, latLng2);
-                L.circle(latLng1, {radius: dist, fillOpacity:0, dashArray: "5 5", weight: 1, color: '#666', _isDistanceCircle: true}).addTo(map);
-                L.circle(latLng1, {radius: latLng1.distanceTo(latLng2), fillOpacity:0, dashArray: "5 5", weight: 1, color: 'red', _isDistanceCircle: true}).addTo(map);
-
-                var [pt1, pt2] = [map.latLngToLayerPoint(latLng1), map.latLngToLayerPoint(latLng1)];
-
-            }
-        });
-        polyMarker.on('popupclose', function(ev) {
-            var map = ev.sourceTarget._map;
-            if(map){
-                map.eachLayer(elm => {
-                    if ((elm instanceof L.Circle) && elm.options._isDistanceCircle){
-                        elm.remove();
-                    }
-                });
-            }
-        });
-        */
-        return polyMarker;
+        return L.polyMarker(latLng, options).bindPopup(popupContent);
     });
 
     // Add event (beach ball icon):
@@ -384,12 +355,6 @@ function showMap(event_id){
     });
     var evtLatLng = L.latLng(evLat, adjustLng(evLon));
     markers.push(L.marker(evtLatLng, {icon: beachBallIcon}));
-    /*for (var degrees of [20, 40, 60, 80]){
-        var latLng2 = L.latLng(evtLatLng.lat, evtLatLng.lng + degrees);
-        var dist = map.distance(evtLatLng, latLng2);
-        var distanceCircle = L.circle(evtLatLng, {radius: dist, fillOpacity:0, dashArray: "5 5", weight: 1, color: '#666'});
-        markers.push(distanceCircle);
-    }*/
 
     // Add event ("normal" circle, uncomment for debugging purposes):
     // markers.push(L.circleMarker([evLat, adjustLng(evLon)], {weight:1, color:'black', fillColor:'#555', fillOpacity: 1, radius: 7}));
@@ -402,18 +367,11 @@ function showMap(event_id){
 
     // zoom to markers for a better display:
     map.fitBounds(featureGroup.getBounds());
-
-    // map does not show up the first time. Maybe invalidate size? Let's invalidate it:
-    if (_mapInvalidateSize){
-        _mapInvalidateSize = false;
-        window.setTimeout(function(){
-            map.invalidateSize();
-        }, 100);
-    }
 }
 
-
-{%- if data | length > 0 -%}
-showMap({{ data[0]["event id"] }});
-{%- endif -%}
+showMap({{ events[0]["event id"] }});
 </script>
+
+
+</body>
+</html>

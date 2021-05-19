@@ -277,12 +277,13 @@ def report(input):
             if not evts:
                 continue
             with open(output + '.html', 'w') as _:
-                _.write(template.render(title=title, data=evts, description=desc,
+                _.write(template.render(title=title, events=evts, description=desc,
                                         filename=basename(fle),
                                         stations=json.dumps(stas, separators=(',', ':'))))
                 # if at least one report is generated, return 0 at the end. Thus:
                 ret = 0
         except Exception as exc:
+            raise
             print('ERROR generating %s: %s' % (output, str(exc)), file=sys.stderr)
 
     sys.exit(ret)

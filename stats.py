@@ -93,7 +93,7 @@ def get_report_rows(hdf_path):
     dfr = pd.read_hdf(hdf_path)
 
     # fetch event ids from the event catalog:
-    evid2catalogid = {}
+    sess = None
     try:
         sess = get_session(
             yaml_load(join(dirname(__file__), 's2s_config', 'download.private.yaml'))[
@@ -114,7 +114,7 @@ def get_report_rows(hdf_path):
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
         row = {  # we are working in python 3.6.9+, order is preserved
             'event id': ev_id,
-            'catalog id': evid2catalogid.get(ev_id, 'n/a'),
+            'catalog id': evid2catalogid.get(ev_id, ''),
             # 'GEOFON event id': df_.ev_evid.iat[0],
             # df_ has all event related columns made of 1 unique value, so take 1st:
             'Mw': df_.ev_mag.iat[0],
