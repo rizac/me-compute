@@ -45,8 +45,7 @@ class Stats(Enum):
             # should never happen right? for safety:
             raise ValueError('%s is not a Stats enumeration item' % str(self))
 
-        stats = avg_std_count(values, weights, round=ROUND)
-        return {self.name + ' ' + k: v for k, v in stats.items()}
+        return avg_std_count(values, weights, round=ROUND)
 
     @classmethod
     def as_help_dict(cls):
@@ -129,23 +128,26 @@ def get_report_rows(hdf_path):
         }
 
         values = np.asarray(df_.me_st.values)
-
-        if not np.isfinite(values).any():
+        waveforms_count = np.sum(np.isfinite(values))
+        if not waveforms_count:
             continue
+        row['waveforms'] = waveforms_count
 
         anomalyscores = np.asarray(df_.aascore.values)
 
-        row.update(Stats.Me.compute(values))
-        me_st_mean = row['Me M']
-        row.update(Stats.Me_p.compute(values))
-        row.update(Stats.Me_w.compute(values, anomalyscores))
-        row.update(Stats.Me_w2.compute(values, anomalyscores))
+        row.update(dict(zip(['Me M', 'Me SD'], Stats.Me.compute(values))))
+        row.update(dict(zip(['Me_p M', 'Me_p SD'], Stats.Me_p.compute(values))))
+        row.update(dict(zip(['Me_w M', 'Me_w SD'], Stats.Me_w.compute(values, anomalyscores))))
+        row.update(dict(zip(['Me_w2 M', 'Me_w2 SD'], Stats.Me_w2.compute(values, anomalyscores))))
 
+        # Stations residuals:
+        me_st_mean = row['Me M']
+        invalid_mean = me_st_mean is None or not np.isfinite(me_st_mean)
         stas = []
         for (net, sta), sta_df in group_sta:
             lat = np.round(sta_df['st_lat'].iat[0], 3)
             lon = np.round(sta_df['st_lon'].iat[0], 3)
-            res = sta_df['me_st'].iat[0] - me_st_mean
+            res = np.nan if invalid_mean else sta_df['me_st'].iat[0] - me_st_mean
             dist_deg = np.round(sta_df['dist_deg'].iat[0], 3)
             stas.append([lat if np.isfinite(lat) else None,
                          lon if np.isfinite(lon) else None,
@@ -249,4 +251,4 @@ def avg_std_count(values, weights=None, na_repr=None, round=None):
         if round is not None:
             mean = np.round(mean, round)
             std = np.round(std, round)
-    return {'M': mean, 'SD': std, '#': count}
+    return [mean, std, count]

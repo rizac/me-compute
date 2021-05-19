@@ -48,7 +48,7 @@
         }
         table thead td, table thead th{  /* Make sticky header: https://stackoverflow.com/a/47923622 */
             position: sticky; top: 0; z-index: 1;
-            background-color: white;
+            background-color: white; /* make tbody rows behind theader row, otherwise they overlap */
         }
         table{
             display:block;
@@ -83,9 +83,10 @@
     <style>
         body{
             font-family: 'Open Sans', Arial, Helvetica, 'Ubuntu Mono', sans-serif !important;
+            background-color: #EEE !important;
         }
-        div.leaflet-container {
-            background: none;
+        table, tbody{  /* with thead position sticky, it seems we need to set color on tbody, too */
+            background-color: white;
         }
         .desc{
             background-color: white;
@@ -94,8 +95,7 @@
             z-index: 10000;
         }
         /* Styling columns by measure group (currently 4 groups, 3 columns per group)*/
-        th:nth-child(6n+9), td:nth-child(6n+9),
-        th:nth-child(6n+12), td:nth-child(6n+12){
+        th:nth-child(2n+10), td:nth-child(2n+10){
             border-left: 1px solid #CCC !important;
         }
         th, td{
@@ -144,7 +144,7 @@
         <b>{{key}}</b>: {{val}}
         <br/>
         {%- endfor -%}
-        (<b>M</b>: mean <b>SD</b>: Standard deviation, <b>#</B>: number of waveforms used)
+        <b>M</b>: mean <b>SD</b>: Standard deviation, <b>waveforms</B>: number of waveforms with valid Me (not NaN, +-=Inf)
     </div>
 </div>
 <div class="main-div d-flex flex-column align-items-center">
