@@ -231,8 +231,12 @@ def _get_timebounds(start, duration, end):
 
 # (https://click.palletsprojects.com/en/5.x/advanced/#invoking-other-commands)
 @cli.command(context_settings=dict(max_content_width=89),)
+@click.option('-f', '--force-overwrite',
+              is_flag=True, help='Force overwrite HTML if already existing. '
+                                 'Default is false (do not regenerate '
+                                 'existing HTML)')
 @click.argument('input', required=False)
-def report(input):
+def report(force_overwrite, input):
     """
     Create HTML report from a given HDF file generated wiuth the process command
      Magnitude energy data using stream2segment and saving the HDF file into
@@ -259,33 +263,37 @@ def report(input):
                   'result are stored')
             sys.exit(1)
 
-    print("%d report(s) to be generated" % len(input))
+    print("%d report(s) found" % len(input))
+    input = {_: splitext(_)[0] + '.html'
+             for _ in input if force_overwrite or not isfile(splitext(_)[0] + '.html')}
+    if not input:
+        print("No report to be generated")
+        sys.exit(0)
+    else:
+        print("%d report(s) to be generated" % len(input))
+
     config_in = join(dirname(__file__), 'report.template.html')
     with open(config_in) as _:
         template = Template(_.read())
 
     desc = Stats.as_help_dict()
-    ret = 1
-    for fle in input:
-        title = splitext(basename(fle))[0]
-        output, ext = splitext(fle)
+    for process_fpath, report_fpath in input.items():
+        title = splitext(basename(process_fpath))[0]
         try:
             evts, stas = [], {}
-            for evid, evt_stats, stations in get_report_rows(fle):
+            for evid, evt_stats, stations in get_report_rows(process_fpath):
                 evts.append(evt_stats)
                 stas[evid] = stations
             if not evts:
                 continue
-            with open(output + '.html', 'w') as _:
+            with open(report_fpath, 'w') as _:
                 _.write(template.render(title=title, events=evts, description=desc,
-                                        filename=basename(fle),
+                                        # filename=basename(fle),
                                         stations=json.dumps(stas, separators=(',', ':'))))
-                # if at least one report is generated, return 0 at the end. Thus:
-                ret = 0
         except Exception as exc:
-            print('ERROR generating %s: %s' % (output, str(exc)), file=sys.stderr)
-
-    sys.exit(ret)
+            print('ERROR generating %s: %s' % (report_fpath, str(exc)), file=sys.stderr)
+            sys.exit(1)
+    sys.exit(0)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 import shutil
 import os
+import time
 from datetime import datetime, date, timedelta
 from os.path import dirname, join, abspath, isdir, basename, isfile
 from unittest import mock
@@ -14,7 +15,8 @@ from stats import ParabolicScore2Weight, LinearScore2Weight
 
 TESTDATA_DIR = join(dirname(__file__), 'data')
 S2SCONFIG_DIR = join(dirname(dirname(__file__)), 's2s_config')
-TMP_TEST_DATA_DIRS = [join(TESTDATA_DIR, 'mecomputed')]
+TMP_TEST_DATA_DIRS = [join(TESTDATA_DIR, 'mecomputed-tmp')]
+ME_TEST_DATA_ROOT = join(TESTDATA_DIR, 'mecomputed')
 
 
 # Fixture that cleans up test dir
@@ -121,11 +123,35 @@ def test_run_real():
     # start, end = '2021-04-03 01:10:00', '2021-04-03 01:20:00'
     result = runner.invoke(cli, ['process', rootdir, '-s', start, '-e', end])
     assert not result.exception
-    # check that the produced hdf file exists:
+    # check that the produced hdf file exists
+    # (i.e. the method below doesn't return None):
     assert ResultDir.get_resultfile_path(ResultDir(rootdir, start, end, mkdir=False))
 
 
-def test_report():
+def test_report_fromreportdir():
+    rootdir = ME_TEST_DATA_ROOT
+    report_dir = 'mecomputed--2021-05-01T07:08:51--2021-05-01T07:08:52'
+    report_file = 'process--2021-05-01T07:08:51--2021-05-01T07:08:52'
+    report = join(rootdir, report_dir, report_file + '.html')
+    try:
+        assert not isfile(report)
+        runner = CliRunner()
+        result = runner.invoke(cli, ['report', rootdir])
+        assert not result.exception
+        mtime = os.stat(report).st_mtime
+        time.sleep(1)
+        result = runner.invoke(cli, ['report', rootdir])
+        assert not result.exception
+        assert os.stat(report).st_mtime == mtime
+        result = runner.invoke(cli, ['report', '-f', rootdir])
+        assert not result.exception
+        assert os.stat(report).st_mtime > mtime
+    finally:
+        if isfile(report):
+            os.remove(report)
+
+
+def test_report_fromfile():
     rootdir = dirname(TMP_TEST_DATA_DIRS[0])
     for fname in ('process.result.singleevent.hdf', 'process.result.multievent.hdf'):
         input = join(rootdir, fname)
