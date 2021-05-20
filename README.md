@@ -60,7 +60,7 @@ where `[ROOT]` can be any directory of your choice.
 
 This command processes by default the data downloaded in the previous
 day and creates under `[ROOT]` 
-a process directory `mecomputed--[START]--[END]` (where `[START]` 
+a *process directory* `mecomputed--[START]--[END]` (where `[START]` 
 and `[END]` are the ISO-formatted time bounds of the previous day) with the 
 following files:
 
@@ -81,16 +81,19 @@ following files:
 [PYPATH]/bin/python [MEPATH]/cli.py report [ROOT]
 ```
 
-`[ROOT]/mecomputed/` is the input directory where processed data 
-has to be scanned and report generated. It must just be the same
-given in the process routine (see details above). The report will 
-scan each process directory in it and create a `.html` file for 
+This command will 
+scan each *process directory* under `[ROOT]` in it and create a `.html` file next to
 each `hdf` found.
+
+`[ROOT]` is must just be the same directory
+given in the process routine (see details above). 
 
 The program does not overwrite existing HTML unless the -f option
 is given (type 
 `[PYPATH]/bin/python [MEPATH]/cli.py report --help` for details)
 
+You can pass as `[ROOT]` also a specific HDF file in case you want to regenerate
+a single report
 
 ## Misc
 
