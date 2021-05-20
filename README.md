@@ -59,7 +59,7 @@ and `[MEPATH]` the path of this project, then:
 where `[ROOT]` can be any directory of your choice.
 
 This command processes by default the data downloaded in the previous
-daya and creates under `[ROOT]` 
+day and creates under `[ROOT]` 
 a process directory `mecomputed--[START]--[END]` (where `[START]` 
 and `[END]` are the ISO-formatted time bounds of the previous day) with the 
 following files:
