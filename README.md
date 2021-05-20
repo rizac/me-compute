@@ -36,7 +36,8 @@ Then install the requirements. From the directory where you cloned `mecompute`:
 
 ## Usage:
 
-With your database setup (Postgres or SQLite), copy `download.yaml` into `download.private.yaml`
+With your database created and, if needed, configured (you can use Postgres or SQLite),
+copy `download.yaml` into `download.private.yaml`
 (the file is ignored by git) and set the db url safely (the url might contain passwords). 
 
 ### Download:
