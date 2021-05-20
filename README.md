@@ -79,7 +79,7 @@ mecomputed--[START]--[END]
 ### Report
 
 ```
-[PYPATH]/bin/python [MEPATH]/cli.py process [ROOT]
+[PYPATH]/bin/python [MEPATH]/cli.py report [ROOT]
 ```
 
 `[ROOT]/mecomputed/` is the input directory where processed data has to be scanned
@@ -87,6 +87,10 @@ and report generated. It must just be the same given in the
 process routine (see details above). The report will scan each
 process directory in it and create a '.html' file for each
 'hdf' found.
+
+The program does not overwrite existing HTML unless the -f option
+is given (type as usual 
+`[PYPATH]/bin/python [MEPATH]/cli.py report --help` for details)
 
 
 ## Misc
