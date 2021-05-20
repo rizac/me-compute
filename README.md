@@ -114,13 +114,13 @@ you can change the event web service by simply changing the parameter `eventws` 
 
 The problem is the HTML report: currently, we hard code in the Jinja template (`report.template.html`)
 two URLs, related but not equal to `eventws`:
-    1) In each table row, an URL redirects to the event source page
-    2) In the map, an URL is queried to get the Moment tensor beach ball (which
+  1) In each table row, an URL redirects to the event source page
+  2) In the map, an URL is queried to get the Moment tensor beach ball (which
        is used as event icon on the map)
 
-Ideally, one should implement Python side a class mapping (1) and (2) from a given `eventws`
-in the `download.private.yaml` and a given `event_id`, but note that 
-there is no standard way to do it, there is also no guarantee that any FDSN web service
-has the URL 1) and 2) associated to it, thus fallbacks have to be implemented in case
-for the missing anchor in the table and the missing icon in the map.
+Ideally, one should remove the hard coded URLs and implement Python-side a class
+that, given the `eventws` URL in `download.private.yaml` and an `event_id`,
+returns the two URLs 1) and 2) above, considering the case that any of those URLs
+might not exist, and thus think about fallbacks for the missing anchor in the table
+and the missing icon in the map
 
