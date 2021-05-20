@@ -51,30 +51,29 @@ and `[MEPATH]` the path of this project, then:
 
 ### Process
 
-/home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
-0 0 * * 5 /home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/mecompute/cli.py process /home/me/mecompute/mecomputed/
-
-
 ```bash
 [PYPATH]/bin/python [MEPATH]/cli.py process [ROOT]
 ```
 
 where `[ROOT]` can be any directory of your choice.
 
-This command processes by default the data of the previous day, but can be customized
-with '-s' and '-e' (type `[PYPATH]/bin/python [MEPATH]/cli.py process --help`
-for details) and creates a process directory under [ROOT] with
-three files:
+This command processes by default the data downloaded in the previous
+daya and creates under `[ROOT]` 
+a process directory `mecomputed--[START]--[END]` (where `[START]` 
+and `[END]` are the ISO-formatted time bounds of the previous day) with the 
+following files:
 
 ```
 mecomputed--[START]--[END]
-    |
-    + process--[START]--[END].hdf
-    + process--[START]--[END].yaml
-    + process--[START]--[END].log
+      [FILE] process--[START]--[END].hdf
+      [FILE] process--[START]--[END].yaml
+      [FILE] process--[START]--[END].log
 ```
 
-([START] and [END] are the ISO formatted time bounds used)
+(If you want to customize the time bounds, provide the relative options
+`-s` and `-e`. Type
+`[PYPATH]/bin/python [MEPATH]/cli.py process --help` for details)
+
 
 ### Report
 
@@ -82,14 +81,14 @@ mecomputed--[START]--[END]
 [PYPATH]/bin/python [MEPATH]/cli.py report [ROOT]
 ```
 
-`[ROOT]/mecomputed/` is the input directory where processed data has to be scanned
-and report generated. It must just be the same given in the
-process routine (see details above). The report will scan each
-process directory in it and create a '.html' file for each
-'hdf' found.
+`[ROOT]/mecomputed/` is the input directory where processed data 
+has to be scanned and report generated. It must just be the same
+given in the process routine (see details above). The report will 
+scan each process directory in it and create a `.html` file for 
+each `hdf` found.
 
 The program does not overwrite existing HTML unless the -f option
-is given (type as usual 
+is given (type 
 `[PYPATH]/bin/python [MEPATH]/cli.py report --help` for details)
 
 
