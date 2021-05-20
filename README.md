@@ -98,7 +98,7 @@ a single report.
 ## Misc
 
 
-#### Generate test HTMl report (to inspect visually):
+#### Generate test HTML report (to inspect visually):
 
 Run `test_workflow::test_report_fromfile` and inspect
 `test/data/process.result.multievent.html`  `test/data/process.result.singleevent.html`
