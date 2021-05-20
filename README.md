@@ -64,12 +64,11 @@ a process directory `mecomputed--[START]--[END]` (where `[START]`
 and `[END]` are the ISO-formatted time bounds of the previous day) with the 
 following files:
 
-```
-mecomputed--[START]--[END]
-      [FILE] process--[START]--[END].hdf
-      [FILE] process--[START]--[END].yaml
-      [FILE] process--[START]--[END].log
-```
+
+* mecomputed--[START]--[END]
+  * process--[START]--[END].hdf
+  * process--[START]--[END].yaml
+  * process--[START]--[END].log
 
 (If you want to customize the time bounds, provide the relative options
 `-s` and `-e`. Type
