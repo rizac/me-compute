@@ -56,19 +56,42 @@ and `[MEPATH]` the path of this project, then:
 
 
 ```bash
-[PYPATH]/bin/python [MEPATH]/cli.py process [ROOT]/mecomputed/
+[PYPATH]/bin/python [MEPATH]/cli.py process [ROOT]
 ```
 
-where `[ROOT]/mecomputed/` can be any directory of your choice, in this example
-is a directory next to the Me repository named `mecomputed` (note the **d** at the end)
+where `[ROOT]` can be any directory of your choice.
 
+This command processes by default the data of the previous day, but can be customized
+with '-s' and '-e' (type `[PYPATH]/bin/python [MEPATH]/cli.py process --help`
+for details) and creates a process directory under [ROOT] with
+three files:
+
+```
+mecomputed--[START]--[END]
+    |
+    + process--[START]--[END].hdf
+    + process--[START]--[END].yaml
+    + process--[START]--[END].log
+```
+
+([START] anbd [END] are the ISO formatted time bounds used)
 
 ### Report
 
 ```
-<VENV_PATH>/bin/python <MECOMPUTE_REPO>/stream2segment/cli.py report -c <MECOMPUTE_REPO>/s2s_config/download.private.yaml
+[PYPATH]/bin/python [MEPATH]/cli.py process [ROOT]
 ```
 
+`[ROOT]/mecomputed/` is the input directory where processed data has to be scanned
+and report generated. It must just be the same given in the
+process routine (see details above). The report will scan each
+process directory in it and create a '.html' file for each
+'hdf' found.
 
-Generate test report: Run `test_workflow::test_report` and inspect
+
+## Misc
+
+#### Generate test HTMl report (to inspect visually):
+
+Run `test_workflow::test_report_fromfile` and inspect
 `test/data/process.result.multievent.html`  `test/data/process.result.singleevent.html`

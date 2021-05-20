@@ -139,9 +139,9 @@ cli = click.Group()
               help="end time (UTC ISO-formatted) of the events to consider. If missing "
                    "it is set as `start` plus `duration` days. If `start` is also "
                    "missing, it defaults as today at midnight (00h:00m:00s)")
-@click.option('duration', '-d', type=int, default=7,
+@click.option('duration', '-d', type=int, default=1,
               help="duration in days of the time window to consider. If missing, "
-                   "defaults to 7. If both time bounds (start, end) are provided, it is "
+                   "defaults to 1. If both time bounds (start, end) are provided, it is "
                    "ignored, if no time bounds are provided, it will set start as "
                    "`duration` days ago. In any other case, it will set the missing "
                    "time bound")
