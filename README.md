@@ -2,8 +2,8 @@
 
 Program to compute Magnitude Energy (Me) from downloaded seismic waveforms:
 
-- It downloads data (waveform segments) and metadata from FDSN web services
-  (using [stream2segment](https://github.com/rizac/stream2segment))
+- It downloads data (waveform segments) and metadata from the FDSN GEOFON event 
+  web service (using [stream2segment](https://github.com/rizac/stream2segment))
 - It computes the Me for each segment producing a tabular data (one row per segment)
   stored in HDF format (using [stream2segment](https://github.com/rizac/stream2segment))
 - It produces even-based HTML reports from each HDF table, with Me information 
@@ -93,6 +93,13 @@ is given (type
 
 
 ## Misc
+
+
+#### Change the event web service
+You just need to change the parameter `eventws` in the `download.private.yaml` file.
+If you want to 
+
+
 
 #### Generate test HTMl report (to inspect visually):
 
