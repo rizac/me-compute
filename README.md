@@ -74,7 +74,7 @@ mecomputed--[START]--[END]
     + process--[START]--[END].log
 ```
 
-([START] anbd [END] are the ISO formatted time bounds used)
+([START] and [END] are the ISO formatted time bounds used)
 
 ### Report
 
