@@ -112,7 +112,7 @@ For the download and process part, where the program delegates `stream2segment`,
 you can change the event web service by simply changing the parameter `eventws` in the
 `download.private.yaml` file with any valid FDSN event URL.
 
-The problem is the HTML report: currently, we hard code in the Jinja template
+The problem is the HTML report: currently, we hard code in the Jinja template (`report.template.html`)
 two URLs, related but not equal to `eventws`:
     1) In each table row, an URL redirects to the event source page
     2) In the map, an URL is queried to get the Moment tensor beach ball (which
