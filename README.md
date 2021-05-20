@@ -82,18 +82,18 @@ following files:
 ```
 
 This command will 
-scan each *process directory* under `[ROOT]` in it and create a `.html` file next to
-each `hdf` found.
+scan each *process directory* under `[ROOT]` and create a `.html` report file next to
+each `.hdf` found.
 
 `[ROOT]` is must just be the same directory
 given in the process routine (see details above). 
 
 The program does not overwrite existing HTML unless the -f option
 is given (type 
-`[PYPATH]/bin/python [MEPATH]/cli.py report --help` for details)
+`[PYPATH]/bin/python [MEPATH]/cli.py report --help` for details).
 
 You can pass as `[ROOT]` also a specific HDF file in case you want to regenerate
-a single report
+a single report.
 
 ## Misc
 
