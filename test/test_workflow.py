@@ -134,6 +134,8 @@ def test_report_fromreportdir():
     report_file = 'process--2021-05-01T07:08:51--2021-05-01T07:08:52'
     report = join(rootdir, report_dir, report_file + '.html')
     try:
+        if isfile(report):
+            os.remove(report)
         assert not isfile(report)
         runner = CliRunner()
         result = runner.invoke(cli, ['report', rootdir])
@@ -147,8 +149,9 @@ def test_report_fromreportdir():
         assert not result.exception
         assert os.stat(report).st_mtime > mtime
     finally:
-        if isfile(report):
-            os.remove(report)
+        pass
+        # if isfile(report):
+            # os.remove(report)
 
 
 def test_report_fromfile():

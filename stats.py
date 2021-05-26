@@ -119,10 +119,10 @@ def get_report_rows(hdf_path):
             'catalog id': evid2catalogid.get(ev_id, ''),
             # 'GEOFON event id': df_.ev_evid.iat[0],
             # df_ has all event related columns made of 1 unique value, so take 1st:
-            'Mw': df_.ev_mag.iat[0],
-            'lat': df_.ev_lat.iat[0],
-            'lon': df_.ev_lon.iat[0],
-            'depth km': df_.ev_dep.iat[0],
+            'Mw': np.round(df_.ev_mag.iat[0], 2),
+            'lat': np.round(df_.ev_lat.iat[0], 2),
+            'lon': np.round(df_.ev_lon.iat[0], 2),
+            'depth km': np.round(df_.ev_dep.iat[0], 1),
             'time': df_.ev_time.iat[0].isoformat('T'),
             'stations': group_sta.ngroups
         }
@@ -169,7 +169,10 @@ class Score2Weight:
     def convert(cls, scores):
         """converts scores to weights, returning a numpy array of values in [0, 1]
         """
-        weights = cls._to_weights(np.asarray(scores), cls.minscore, cls.maxscore)
+        scores = np.asarray(scores)
+        if not np.isfinite(scores).any():
+            return None  # no weight
+        weights = cls._to_weights(scores, cls.minscore, cls.maxscore)
         return np.clip(weights, 0., 1.)
 
     @classmethod

@@ -320,16 +320,11 @@ function showMap(event_id){
     var catalogID = ('' + (eventTr.children[1].textContent)).trim();
     var evTime = ('' + (eventTr.children[6].textContent)).trim();
 
-    // Leaflet centers on the 0 meridian (Greenwich), so that if an event is
-    // close to the map borders ( <-90 or > 90 deg longitude), stations might appear
-    // on the opposite side of the map instead that close to it. The solution in this
-    // case is to make all coordinates in [0, 360]: // https://stackoverflow.com/a/38824652
-    // So, first define an "adjust coordinates" function no-op by default:
-    var adjustLng = elm => elm ;
-    // then, if coordinates have to be shifted (event is closer to the anti-meridian):
-    if ((evLon < -90) || (evLon > 90)){
-        adjustLng = elm => elm < 0 ? elm+360 : elm;
-    }
+    // Display stations around event. This is a problem for longitues only because in
+    // leaflet is kind of continuous (To see it, zoom out and scroll horizontally). Basically
+    // shift station longitues of 360deg if they are more than 180 deg distant from the event
+    // (solution inspired from a similar problem here: // https://stackoverflow.com/a/38824652)
+    var adjustLng = lng => evLon - lng > 180 ? lng + 360 : (evLon - lng < -180 ? lng - 360 : lng) ;
 
     // repopulate map with new event and stations.
     // First put everything into a 'markers' Array:
@@ -370,11 +365,11 @@ function showMap(event_id){
         iconUrl: `https://geofon.gfz-potsdam.de/data/alerts/${new Date(Date.parse(evTime + 'Z')).getFullYear()}/${catalogID}/bb.png`,
         iconSize:  SIZE*3, // icon size. When specified, icon is centered and iconAnchor property can be missing
     });
-    var evtLatLng = L.latLng(evLat, adjustLng(evLon));
+    var evtLatLng = L.latLng(evLat, evLon);
     markers.push(L.marker(evtLatLng, {icon: beachBallIcon}));
 
     // Add event ("normal" circle, uncomment for debugging purposes):
-    // markers.push(L.circleMarker([evLat, adjustLng(evLon)], {weight:1, color:'black', fillColor:'#555', fillOpacity: 1, radius: 7}));
+    // markers.push(L.circleMarker([evLat, evLon], {weight:1, color:'black', fillColor:'#555', fillOpacity: 1, radius: 7}));
 
     // Create featuresGroup and add all markers we created to it. This way, it is easier
     // to clear the map by removing the group only (see the snippet above where we clear the map)
