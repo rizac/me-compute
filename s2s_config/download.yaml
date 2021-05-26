@@ -30,6 +30,7 @@ mindepth: 0
 minlatitude: null
 minlongitude: null
 minmagnitude: null
+magnitudetype: 'Mw'
 network: '*'
 restricted_data: ''
 retry_client_err: true
