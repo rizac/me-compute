@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
 <!--    <link rel="preconnect" href="https://fonts.gstatic.com">-->
 <!--    <link href="https://fonts.googleapis.com/css2?family=Ubuntu+Mono&display=swap" rel="stylesheet">-->
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&display=swap" rel="stylesheet">
+    <link rel="stylesheet" media="screen" href="https://fontlibrary.org//face/source-sans-pro" type="text/css"/>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
    integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
@@ -52,6 +52,7 @@
         }
         table{
             display:block;
+            border-collapse: collapse;
         }
         table td button {
             width: 100%;
@@ -82,8 +83,11 @@
     <!-- appearance style (important, not necessary): -->
     <style>
         body{
-            font-family: 'Open Sans', Arial, Helvetica, 'Ubuntu Mono', sans-serif !important;
+            font-family: "SourceSansProLight", Arial, Helvetica, 'Ubuntu Mono', sans-serif !important;
             background-color: #EEE !important;
+        }
+        .leaflet-container {  /* leaflet should use my font */
+            font: inherit;
         }
         table, tbody{  /* with thead position sticky, it seems we need to set color on tbody, too */
             background-color: white;
@@ -95,7 +99,10 @@
             z-index: 10000;
         }
         /* Styling columns by measure group (currently 4 groups, 3 columns per group)*/
-        th:nth-child(2n+10), td:nth-child(2n+10){
+        th:nth-child(10), td:nth-child(10),
+        th:nth-child(13), td:nth-child(13),
+        th:nth-child(16), td:nth-child(16),
+        th:nth-child(18), td:nth-child(18){
             border-left: 1px solid #CCC !important;
         }
         th, td{
@@ -106,9 +113,6 @@
         #map, .table-div{
             border: 1px solid #CCC;
             margin-top:1rem;
-        }
-        .leaflet-container {
-            font: inherit;
         }
         button.btn:focus {
             outline: none;
@@ -144,12 +148,18 @@
         <b>{{key}}</b>: {{val}}
         <br/>
         {%- endfor -%}
-        <b>M</b>: mean <b>SD</b>: Standard deviation, <b>waveforms</B>: number of waveforms with valid Me (not NaN, +-=Inf)
+        <b>M</b> mean
+        <br/>
+        <b>SD</b> Standard deviation
+        <br/>
+        <b>waveforms</B> number of waveforms with finite Me (not NaN or Inf)
+        <br/>
+        <b>#</B> number of waveforms used for the specific computation (when missing it equals "waveforms")
     </div>
 </div>
 <div class="main-div d-flex flex-column align-items-center">
     <div class="table-div">
-        <table {% if events | length > 1 -%} data-sortable {%- endif %} style="border-collapse: collapse;">
+        <table id="main_table" {% if events | length > 1 -%} data-sortable {%- endif -%}>
             <thead>
                 <tr>
                     {%- for key in events[0].keys() -%}

@@ -15,6 +15,7 @@ from stream2segment.io.db import close_session
 from stream2segment.download.db.models import Event
 
 pct = (5, 95)  # percentiles
+score_th = 0.75  # anomaly score thresold
 ROUND = 2  # round to be used in mean and stdev. Set to None for no rounding
 
 
@@ -23,6 +24,7 @@ class Stats(Enum):
     Me = 'Me stats are computed on all waveforms'
     Me_p = 'Me stats computed on the waveforms in the {0:d}-{1:d} ' \
            'percentiles'.format(*pct)
+    Me_t = 'Me stats computed on the waveforms with anomaly score < %f' % score_th
     Me_w = 'Me stats are computed on all waveforms, weighting values with ' \
            'the inverse of the anomaly score (mapping linearly score and weights)'
     Me_w2 = 'Me stats are computed on all waveforms, weighting values with ' \
@@ -31,16 +33,19 @@ class Stats(Enum):
     def compute(self, values, *options):
         values = np.asarray(values)
         weights = None
+
         if self is Stats.Me:
             pass
-        elif self is Stats.Me_p:
+        if self is Stats.Me_p:
             p_low, p_high = np.nanpercentile(values, pct)
             values = values[(values >= p_low) & (values <= p_high)]
+        elif self is Stats.Me_t:
+            anomalyscores = np.asarray(options[0])
+            values = values[anomalyscores < score_th]
         elif self is Stats.Me_w or self is Stats.Me_w2:
-            anomalyscores = None if not options else np.asarray(options[0])
-            if anomalyscores is not None:
-                weights = (LinearScore2Weight if self is Stats.Me_w
-                           else ParabolicScore2Weight).convert(anomalyscores)
+            anomalyscores = np.asarray(options[0])
+            weights = (LinearScore2Weight if self is Stats.Me_w
+                       else ParabolicScore2Weight).convert(anomalyscores)
         else:
             # should never happen right? for safety:
             raise ValueError('%s is not a Stats enumeration item' % str(self))
@@ -108,9 +113,6 @@ def get_report_rows(hdf_path):
 
     for ev_id, df_ in dfr.groupby('ev_id'):
 
-        if ev_id == 90:
-            asd = 9
-
         group_sta = df_.groupby(['network', 'station'])
 
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
@@ -135,13 +137,13 @@ def get_report_rows(hdf_path):
 
         anomalyscores = np.asarray(df_.aascore.values)
 
-        row.update(dict(zip(['Me M', 'Me SD'], Stats.Me.compute(values))))
-        row.update(dict(zip(['Me_p M', 'Me_p SD'], Stats.Me_p.compute(values))))
+        row.update(dict(zip(['Me_p M', 'Me_p SD', 'Me_p #'], Stats.Me_p.compute(values))))
+        row.update(dict(zip(['Me_t M', 'Me_t SD', 'Me_t #'], Stats.Me_t.compute(values, anomalyscores))))
         row.update(dict(zip(['Me_w M', 'Me_w SD'], Stats.Me_w.compute(values, anomalyscores))))
         row.update(dict(zip(['Me_w2 M', 'Me_w2 SD'], Stats.Me_w2.compute(values, anomalyscores))))
 
         # Stations residuals:
-        me_st_mean = row['Me M']
+        me_st_mean = Stats.Me_p.compute(values)[0] # row['Me M']
         invalid_mean = me_st_mean is None or not np.isfinite(me_st_mean)
         stas = []
         for (net, sta), sta_df in group_sta:

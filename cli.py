@@ -291,6 +291,7 @@ def report(force_overwrite, input):
                                         # filename=basename(fle),
                                         stations=json.dumps(stas, separators=(',', ':'))))
         except Exception as exc:
+            raise
             print('ERROR generating %s: %s' % (report_fpath, str(exc)), file=sys.stderr)
             sys.exit(1)
     sys.exit(0)
