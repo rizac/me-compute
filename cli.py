@@ -277,6 +277,7 @@ def report(force_overwrite, input):
         template = Template(_.read())
 
     desc = Stats.as_help_dict()
+    written = 0
     for process_fpath, report_fpath in input.items():
         title = splitext(basename(process_fpath))[0]
         try:
@@ -290,11 +291,13 @@ def report(force_overwrite, input):
                 _.write(template.render(title=title, events=evts, description=desc,
                                         # filename=basename(fle),
                                         stations=json.dumps(stas, separators=(',', ':'))))
+            written += 1
         except Exception as exc:
             print('ERROR: %s while generating %s: %s' % (exc.__class__.__name__,
                                                          report_fpath, str(exc)),
                   file=sys.stderr)
-            sys.exit(1)
+            # sys.exit(1)
+    print("%d reports generated" % written)
     sys.exit(0)
 
 
