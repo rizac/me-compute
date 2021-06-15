@@ -18,7 +18,8 @@ dburl: postgresql://me:***@localhost/me_06_2020
 starttime: 0
 endtime: -1
 eventws: http://geofon.gfz-potsdam.de/fdsnws/event/1/query
-eventws_params: null
+eventws_params:
+  magnitudetype: 'Mw'
 inventory: true
 location: '*'
 maxdepth: null
@@ -30,7 +31,6 @@ mindepth: 0
 minlatitude: null
 minlongitude: null
 minmagnitude: null
-magnitudetype: 'Mw'
 network: '*'
 restricted_data: ''
 retry_client_err: true
