@@ -95,8 +95,8 @@ def test_run(mock_process):
 
     now = datetime.utcnow()
     assert end.year == now.year and end.month == now.month and end.day == now.day
-    # check that output directory start time is now - 7 days:
-    then = now - timedelta(days=7)
+    # check that output directory start time is now - 1 day, as in the config file:
+    then = now - timedelta(days=1)
     assert start.year == then.year and start.month == then.month \
            and start.day == then.day
 

@@ -391,8 +391,28 @@ function showMap(event_id){
     // zoom to markers for a better display:
     map.fitBounds(featureGroup.getBounds());
 }
+
+// set default event ID according to the URL fragment (last portion of URL after '#'
+// If given, the fragment denotes the catalog id of the event to be selected:
+
 // by default show the map on the first element
-showMap({{ events[0]["event id"] }});
+var defaultEventId = {{ events[0]["event id"] }};
+
+if(window.location.hash) {
+    var catalogId = window.location.hash.substring(1);
+    var catalogId2evtId = {
+        {%- for eventDict in events -%}
+        "{{eventDict["catalog id"]}}": {{eventDict["event id"]}}{{ ", " if not loop.last else "" }}
+        {%- endfor %}
+    };
+    var eventId = catalogId2evtId[catalogId];
+    if (eventId || eventId === 0){
+        defaultEventId = eventId;
+    }
+}
+
+// set selected event on the map:
+showMap(defaultEventId);
 </script>
 
 
