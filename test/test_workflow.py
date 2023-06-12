@@ -8,10 +8,16 @@ from unittest import mock
 import pytest
 import yaml
 from click.testing import CliRunner
-from numpy.compat import os_PathLike
+# from numpy.compat import os_PathLike
+
+import sys
+# HACK, FIXE REMOVE?
+sys.path.append(dirname(dirname(os.path.abspath(__file__))))
 
 from cli import ResultDir, process, cli  #, convert, todatetime
 from stats import ParabolicScore2Weight, LinearScore2Weight
+
+
 
 TESTDATA_DIR = join(dirname(__file__), 'data')
 S2SCONFIG_DIR = join(dirname(dirname(__file__)), 's2s_config')
