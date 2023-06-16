@@ -1,4 +1,8 @@
-# mecompute
+# me-compute
+
+**DISCLAIMER (06-2023): this project is still undergoing a big refactoring
+and migration from a private repository, please DO NOT CLONE or USE. In case of info, contact 
+me or open an issue**
 
 Program to compute Magnitude Energy (Me) from downloaded seismic waveforms:
 
