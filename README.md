@@ -95,6 +95,44 @@ is given (type
 You can pass as `[ROOT]` also a specific HDF file in case you want to regenerate
 a single report.
 
+### Cron job (schedule downloads+process+report regularly) 
+
+You can setup cron jobs to schedule all above routines. 
+For instance, this is an example file that can be edited via
+`crontab -e` (https://linux.die.net/man/1/crontab) and represents
+a currently working example ona remote server:
+(`/home/me/mecompute/mecompute/.env/py3.6.9/bin/python` is the path
+of the Python virtualenv on the server):
+
+```bash
+# Edit this file to introduce tasks to be run by cron.
+# 
+# Each task to run has to be defined through a single line
+# indicating with different fields when the task will be run
+# and what command to run for the task
+# 
+# To define the time you can provide concrete values for
+# minute (m), hour (h), day of month (dom), month (mon),
+# and day of week (dow) or use '*' in these fields (for 'any').# 
+# Notice that tasks will be started based on the cron's system
+# daemon's notion of time and timezones.
+# 
+# Output of the crontab jobs (including errors) is sent through
+# email to the user the crontab file belongs to (unless redirected).
+# 
+# For example, you can run a backup of all your user accounts
+# at 5 a.m every week with:
+# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
+# 
+# For more information see the manual pages of crontab(5) and cron(8)
+# 
+# m h  dom mon dow   command
+5 0 * * * /home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
+0 4 * * * /home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/mecompute/cli.py process /home/me/mecompute/mecomputed/
+30 7 * * * /home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/mecompute/cli.py report /home/me/mecompute/mecomputed/
+```
+
+
 ## Misc
 
 

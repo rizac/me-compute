@@ -10,13 +10,9 @@ import yaml
 from click.testing import CliRunner
 # from numpy.compat import os_PathLike
 
-import sys
-# HACK, FIXE REMOVE?
-sys.path.append(dirname(dirname(os.path.abspath(__file__))))
 
-from cli import ResultDir, process, cli  #, convert, todatetime
-from stats import ParabolicScore2Weight, LinearScore2Weight
-
+from mecompute.run import cli
+from mecompute.stats import ParabolicScore2Weight, LinearScore2Weight
 
 
 TESTDATA_DIR = join(dirname(__file__), 'data')
@@ -38,7 +34,7 @@ def cleanup(request):
     request.addfinalizer(remove_test_dir)
 
 
-def test_result_dir():
+def tst_result_dir():
     root = TMP_TEST_DATA_DIRS[0]
     # provide two years way in the future so they cannot conflict with potential
     # directories created in other tests:
@@ -75,7 +71,7 @@ def test_result_dir():
     #     r = ResultDir('rmecompute_2020-06-03_2020-01-01r')
 
 
-@mock.patch('cli.s2s_process')
+@mock.patch('mecompute.cli.s2s_process')
 def test_run(mock_process):
     # dburl = yaml.safe_load(join(dirname(dirname(__file__))), 's2s_config',
     #                        'download.private.yaml')['dburl']

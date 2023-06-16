@@ -1,7 +1,5 @@
-# Project specific stuff:
-config/mecompute.yaml
-config.yaml
-download.private.yaml
+# Project specific stuff (https://linuxize.com/post/gitignore-ignoring-files-in-git/):
+/config/
 .DS_Store
 
 # Byte-compiled / optimized / DLL files

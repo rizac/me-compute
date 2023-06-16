@@ -1,36 +1,15 @@
-# =======================================================================
-# Stream2segment config file to tune the processing/visualization routine
-# =======================================================================
-
-# NOTE: This file is written in YAML syntax, which uses Python-style indentation to
-# indicate nesting, keep it in mind when editing. You can also use a more compact format
-# that uses [] for lists and {} for maps/objects. For info see:
-# http://docs.ansible.com/ansible/latest/YAMLSyntax.html
+# ======================================================
+# Stream2segment configuration file / processing routine
+# ======================================================
 #
-# If this file is passed as -c argument to the `s2s process` or `s2s show` command,
-# everything implemented here will be accessible in the argument `config` of any
-# processing / plot function implemented in the associated Python file, but please note
-# that some parameters (e.g. 'segments_selection', 'sn_windows' and 'advanced_settings')
-# are also used outside those functions to tune the whole routine (see details below)
-
-
-# Define which segments to process or visualize. For details, see:
-# https://github.com/rizac/stream2segment/wiki/the-segment-object#segments-selection
-# (scroll to the top of the page for the full list of selectable attributes)
-# THIS PARAMETER SHOULD BE ALWAYS PROVIDED: if missing or empty, all segments will be
-# loaded, including segment with missing or malformed waveform data. This is rarely what
-# you might want and slows down considerably the processing or visualization routine
-segments_selection:
-  event.time: '{{ event_time_range }}'  # <- auto filled by the program DO NOT MODIFY
-  has_data: 'true'
-  maxgap_numsamples: '(-0.5, 0.5)'
-  # id: '<100000'
-  # event.event_id: 'C200706022134A'
-  # station.station: 'LAST'
-  #  id: '< 1000'
+# This is a configuration file for the stream2segment `imap` and `process` functions.
+# See associated Python module (generated via `s2s init`) for details
+#
+# This file is written in YAML syntax. For info see: http://docs.ansible.com/ansible/latest/YAMLSyntax.html
 
 amp_ratio_threshold: 0.8
 
+# settings for the pre-process function implemented in the associated python module
 preprocess:
   bandpass_corners: 2
   bandpass_freq_max: 10
@@ -38,6 +17,7 @@ preprocess:
   remove_response_output: VEL
   remove_response_water_level: 40
 
+# settings for the sn (signal-to-noise) spectra implemented in the associated python module
 sn_spectra:
   smoothing_wlen_ratio: 0.25
   taper:
@@ -45,6 +25,7 @@ sn_spectra:
     type: hann
   type: amp
 
+# settings for computing the 'signal' and 'noise' time windows on a segment waveform
 sn_windows:
   arrival_time_shift: -10.0
   signal_window: 90
@@ -238,34 +219,3 @@ freq_dist_table:
      [-23.2788906, -23.4004765, -23.4466515, -23.4615803, -23.499197, -23.5553856, -23.6499538, -23.7475109, -23.8278217, -23.9240894, -23.9763889, -24.03965, -24.0508461, -24.1633282, -24.238018, -24.3580189, -24.4871864, -24.647316, -24.8988876, -25.1756935],
      [-23.3480473, -23.423315, -23.4605217, -23.4904308, -23.5341816, -23.5970592, -23.7156544, -23.8261566, -23.9329815, -24.0301266, -24.0786419, -24.1495609, -24.1818008, -24.2927628, -24.3544807, -24.4759407, -24.6305389, -24.7792969, -25.0250511, -25.3105335]
   ]
-
-# Advanced settings tuning the process routine:
-advanced_settings:
-  # Use parallel sub-processes to speed up the execution (true or false). Advanced users
-  # can also provide a numeric value > 0 to tune the number of processes in the Pool
-  # (https://docs.python.org/3/library/multiprocessing.html#module-multiprocessing.pool)
-  multi_process: true
-  # Set the size, in number of segments, of each chunk of data that will be loaded from
-  # the database. Increasing this number speeds up the load but also increases memory
-  # usage. Null means: set the chunk size automatically (600 if the number N of
-  # segments to be processed is > 600, otherwise N/10). If multi_process is on, the
-  # chunk size also defines how many segments will be loaded in each Python sub-process.
-  segments_chunksize: null
-  # Optional arguments for the output writer. For HDF output see:
-  # https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.HDFStore.append.html
-  # (the parameters 'append' and 'value' will be ignored, if given here)
-  # For the CSV format (with or without header), see:
-  # https://docs.python.org/3/library/csv.html#csv.writer
-  # For CSV with header (e.g. your processing function returns dicts):
-  # https://docs.python.org/3/library/csv.html#csv.DictWriter
-  # (the parameters 'f', 'fieldnames' and 'csvfile' will be ignored, if given here)
-  writer_options:
-    chunksize: 10000
-    # hdf needs a fixed length for all columns: if you write string columns
-    # you need to tell in advance the size allocated with 'min_itemsize', e.g:
-    min_itemsize:
-      network: 2
-      station: 5
-      location: 2
-      channel: 3
-      ev_mty: 2
