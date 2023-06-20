@@ -28,6 +28,15 @@ version = "1.0"
 # with open(path.join(here, 'program_version')) as version_file:
 #    version = version_file.read().strip()
 
+
+# copy config directory:
+config_src = path.abspath(path.join(here, 'mecompute', 'base-config'))
+config_dest = path.abspath(path.join(here, 'config'))
+if not path.isdir(config_dest):
+    import shutil
+    shutil.copytree(config_src, config_dest)
+
+
 setup(
     name='me-compute',
 
@@ -123,7 +132,7 @@ setup(
     # make the installation process copy also the package data (see MANIFEST.in)
     # for info see https://python-packaging.readthedocs.io/en/latest/non-code-files.html
     include_package_data=True,
-    zip_safe=False,
+    # zip_safe=False,
 
     # Although 'package_data' is the preferred approach, in some case you may
     # need to place data files outside of your packages. See:

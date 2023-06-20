@@ -26,7 +26,7 @@ Make virtualenv `python3 -m venv [PYPATH]` and activate it:
 **Remember that any command of the program must be done with the virtual env activated**
 
 Update required packages for installing Python stuff:
-```commandline
+```console
 pip install --upgrade pip setuptools
 ```
 
@@ -40,17 +40,17 @@ Install the program: From the directory where you cloned `mecompute`:
    are project developer who needs to run tests)
  
 2. Install the program:
-   ```commandline
+   ```bash
    pip install .
    ```
    or (if you want to run tests):
-   ```commandline
+   ```bash
    pip install ".[dev]"
    ```
    (add the `-e` option if you want to install in [editable mode](https://stackoverflow.com/a/35064498))
    **The installation creates a new terminal command `me-compute` within your virtualenv,
    that you can inspect via: 
-   ```commandline
+   ```bash
    me-compute --help
    ```
 

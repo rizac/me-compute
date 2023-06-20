@@ -2,7 +2,6 @@
 Command line interface (cli) of the program, type `python cli.py --help` for details
 on the terminal
 """
-import shutil
 import json
 import os
 import sys
@@ -18,14 +17,9 @@ from mecompute.stats import get_report_rows, Stats
 from stream2segment.process import process as s2s_process
 from mecompute.process import main as main_function
 
-# global stuff (create config dir if non existing):
-_CONFIG_DIR = join(dirname(dirname(__file__)), 'config')
-try:
-    shutil.copytree(join(dirname(__file__), 'base-config'), _CONFIG_DIR)
-except FileExistsError:
-    pass
 
 # setup default config file paths:
+_CONFIG_DIR = join(dirname(dirname(__file__)), 'config')
 DOWNLOAD_CONFIG_PATH = join(_CONFIG_DIR, 'download.yaml')
 PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'process.yaml')
 REPORT_TEMPLAE_PATH = join(_CONFIG_DIR, 'report.template.html')
