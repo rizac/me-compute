@@ -6,53 +6,87 @@ me or open an issue**
 
 Program to compute Magnitude Energy (Me) from downloaded seismic waveforms:
 
-- It downloads data (waveform segments) and metadata from the FDSN GEOFON event 
-  web service (using [stream2segment](https://github.com/rizac/stream2segment))
-- It computes the Me for each segment producing a tabular data (one row per segment)
-  stored in HDF format (using [stream2segment](https://github.com/rizac/stream2segment))
-- It produces even-based HTML reports from each HDF table, with Me information 
-  and station Me residuals visualized on an interactive Map
+- It downloads data (waveform segments) and metadata from a FDSN event 
+  web service using [stream2segment](https://github.com/rizac/stream2segment) (available
+  with this package)
+- It computes the Energy Magnitude (Me) for each downloaded segment, producing a tabular 
+  data (one row per segment) stored in HDF format 
+  (exploiting [stream2segment](https://github.com/rizac/stream2segment) processing tools)
+- It produces even-based HTML reports from each HDF table and relative QuakeML: the 
+  report should visualize easily the content of the HDF in the user browser, the QuakeML(s)
+  (one per report event) are the event QuakeML downloaded from the event web service, with
+  the inclusion of the computed Energy Magnitude
 
 
 
 ## Installation:
-Make virtualenv `python -m venv [PYPATH]`. 
+Make virtualenv `python3 -m venv [PYPATH]` and activate it:
+`source [PYPATH]/bin/activate`. 
 
-Clone three repositories:
-this one, [stream2segment](https://github.com/rizac/stream2segment)
-(for downloading and processing data) and [sdaas](https://github.com/rizac/sdaas) (for computing the waveform anomaly score and
-discard outliers).
-We suggest to create a root directory and put all three therein
+**Remember that any command of the program must be done with the virtual env activated**
 
-Then install the requirements. From the directory where you cloned `mecompute`:
-
+Update required packages for installing Python stuff:
+```commandline
+pip install --upgrade pip setuptools
 ```
-    grep ./requirements.txt numpy
-    pip install <what numpy is there>
-    pip install -r ./requirements.txt
-    (move to stream2segment repo)
-    pip install -e .
-    (move to sdaas repo)
-    pip install -e .
-    (move to this project repo)
-    pip install -e .
-```
+
+Install the program: From the directory where you cloned `mecompute`: 
+
+1. [Optional] If you want to be safer and install **exactly** the dependencies 
+   with the tested versions, and your virtualenv is empty and not supposed to have other 
+   packages installed (no possible version conflicts), 
+   then run beforehand: `pip install -r ./requirements.txt` or 
+   `pip install -r ./requirements.dev.txt` (if you want to run test, e.g. you 
+   are project developer who needs to run tests)
+ 
+2. Install the program:
+   ```commandline
+   pip install .
+   ```
+   or (if you want to run tests):
+   ```commandline
+   pip install ".[dev]"
+   ```
+   (add the `-e` option if you want to install in [editable mode](https://stackoverflow.com/a/35064498))
+   **The installation creates a new terminal command `me-compute` within your virtualenv,
+   that you can inspect via: 
+   ```commandline
+   me-compute --help
+   ```
 
 ## Usage:
 
-With your database created and, if needed, configured (you can use Postgres or SQLite),
-copy `download.yaml` into `download.private.yaml`
-(the file is ignored by git) and set the db url safely (the url might contain passwords). 
+First of all, you should copy the default configuration files and edit them (most
+of the configurations are already setup). By typing `me-compute --help`
+a `config` directory is automatically created in the repository. You can use it
+(for developers: it's ignored by `git`) or copy it elsewhere. 
+
+Open `download.yaml` and configure how data should be downloaded.
+The only required parameter is `dburl`, the database URL where the waveforms and 
+metadata downloaded from your event and dataselect web service will be stored. 
+Most likely, also `events_url` and `data_url` need to be setup
+
 
 ### Download:
 
+The download routine downloads data and metadata from the configured FDSN
+event and dataselect web services into the database. The command is simply an
+alias to [stream2segment](https://github.com/rizac/stream2segment) `download`
+command with the configured `download.yaml`. Within the me-computed repository:
 
-```bash
-[PYPATH]/bin/python [S2SPATH]/stream2segment/cli.py download -c [MEPATH]/s2s_config/download.private.yaml
+```commandline
+me-compute download
 ```
+(the `-c` option allows to specify a different config file. Type 
+`me-compute download --help` for details)
+
+<!-- ```bash
+[PYPATH]/bin/python [S2SPATH]/stream2segment/cli.py download -c [MEPATH]/s2s_config/download.private.yaml
+``` 
 
 where `[S2SPATH]` the path of the stream2segment repository (where you cloned stream2segment)
 and `[MEPATH]` the path of this project, then:
+-->
 
 ### Process
 

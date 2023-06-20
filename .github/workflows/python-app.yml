@@ -10,12 +10,14 @@ on:
       - 'mecompute/**'
       - 'test/**'
       - 'setup.py'
+      - '.github/workflows/**'
   pull_request:
     branches: [ "main" ]
     paths:
       - 'mecompute/**'
       - 'test/**'
       - 'setup.py'
+      - '.github/workflows/**'
 
 permissions:
   contents: read
