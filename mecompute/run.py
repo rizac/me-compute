@@ -71,13 +71,12 @@ def download(context, config):
 @click.argument('root_output_dir', required=True)
 def process(start, end, duration, config, dconfig, root_output_dir):
     """
-    process downloaded events computing their Magnitude energy. The output is a
-    directory that will be created inside the specified ROOT_OUTPUT_DIR: the directory
-    contains several files, including  a .HDF file with all waveforms processed (one row
-    per waveform) and several columns, among which "me_st" represents the computed
-    Magnitude energy.
+    process downloaded events computing their Magnitude energy.
 
-    ROOT_OUTPUT_DIR: the destination root directory
+    ROOT_OUTPUT_DIR: the destination root directory. NOTE: The output of this command
+    is a **directory** that will be created inside ROOT_OUTPUT_DIR: the directory
+    will contain several files, including a .HDF file with all waveforms processed (one
+    row per waveform) and several columns
 
     Examples. In order to process all segments of the events occurred ...
 
@@ -207,15 +206,11 @@ def _get_processing_output_dirname(start, end):
 @click.argument('input', required=False, nargs=-1)
 def report(force_overwrite, html_template, input):
     """
-    Create HTML report from a given HDF file generated with the process command
-    for facilitating inspection and visualization of the Me computation process
+    Create HTML visual report and QuakeML(s) from the output of the process command.
 
     INPUT: the path or list of paths (space separated) to the HDF file(s)
-        generated with the `process` command. Each report will be saved in the
-        same directory by replacing the file extension with ".html"
-
-    Each HTML report will be created with the same HDF name replacing the file
-    extension with 'html'
+        generated with the `process` command. Each report file (HTML, QuakeML)
+        will be saved in the same directory of the input
     """
     print("%d process file(s) found" % len(input))
     # collect a dict mapping process file -> report file but only for files not existing

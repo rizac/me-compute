@@ -366,29 +366,30 @@ def main(segment, config):
     ################################
 
     return {
-        'snr': snr_,
-        'aascore': aascore,
-        'satu': flag_ratio,  # signal_is_saturated
-        'dist_deg': distance_deg,
-        's_r': trace.stats.sampling_rate,
-        'me_st': me_st,  # station_magnitude_energy
-        'channel': segment.channel.channel,
-        'location': segment.channel.location,
-        'ev_id': segment.event.id,
-        'ev_evid': segment.event.event_id,  # catalog id
-        'ev_time': segment.event.time,
-        'ev_lat': segment.event.latitude,
-        'ev_lon': segment.event.longitude,
-        'ev_dep': segment.event.depth_km,
-        'ev_mag': segment.event.magnitude,
-        'ev_mty': segment.event.mag_type,
-        'st_id': segment.station.id,
+        'station_magnitude_energy': me_st,
         'network': segment.station.network,
         'station': segment.station.station,
-        'st_lat': segment.station.latitude,
-        'st_lon': segment.station.longitude,
-        'st_ele': segment.station.elevation,
-        'corrected_spectrum_velocity_squared_integral': corrected_spectrum_int_vel_square
+        'location': segment.channel.location,
+        'channel': segment.channel.channel,
+        'event_id': segment.event.id,
+        'event_catalog_id': segment.event.event_id,
+        'event_time': segment.event.time,
+        'event_latitude': segment.event.latitude,
+        'event_longitude': segment.event.longitude,
+        'event_depth': segment.event.depth_km,
+        'event_magnitude_type': segment.event.magnitude,
+        'event_magnitude': segment.event.mag_type,
+        'event_station_distance_deg': distance_deg,
+        'station_id': segment.station.id,
+        'station_latitude': segment.station.latitude,
+        'station_longitude': segment.station.longitude,
+        'station_elevation': segment.station.elevation,
+        'signal_sampling_rate': trace.stats.sampling_rate,
+        'signal_to_noise_ratio': snr_,
+        'signal_amplitude_anomaly_score': aascore,
+        'signal_is_saturated': flag_ratio,
+        'signal_corrected_spectrum_velocity_squared_integral':
+            corrected_spectrum_int_vel_square
     }
 
 
