@@ -47,7 +47,8 @@ setup(
     author_email='rizac@gfz-potsdam.de',  # FIXME: what to provide?
 
     # Choose your license
-    license='GNU',
+    license='GPL',
+    python_requires='>=3.8',
 
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
@@ -114,11 +115,15 @@ setup(
     # If there are data files included in your packages that need to be
     # installed, specify them here.  If using Python 2.6 or less, then these
     # have to be included in MANIFEST.in as well.
-    package_data={"mecompute.base-config": ["*.*"]},
+    #
+    # package_data={
+    #    'sample': ['package_data.dat'],
+    # },
 
     # make the installation process copy also the package data (see MANIFEST.in)
     # for info see https://python-packaging.readthedocs.io/en/latest/non-code-files.html
     include_package_data=True,
+    zip_safe=False,
 
     # Although 'package_data' is the preferred approach, in some case you may
     # need to place data files outside of your packages. See:
