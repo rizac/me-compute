@@ -18,11 +18,11 @@ from stream2segment.process import process as s2s_process
 from mecompute.process import main as main_function
 
 
-# setup default config file paths:
-_CONFIG_DIR = join(dirname(dirname(__file__)), 'config')
-DOWNLOAD_CONFIG_PATH = join(_CONFIG_DIR, 'download.yaml')
+_CONFIG_DIR = join(dirname(__file__), 'base-config')
 PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'process.yaml')
-REPORT_TEMPLAE_PATH = join(_CONFIG_DIR, 'report.template.html')
+REPORT_TEMPLATE_PATH = join(_CONFIG_DIR, 'report.template.html')
+assert isfile(PROCESS_CONFIG_PATH)
+assert isfile(REPORT_TEMPLATE_PATH)
 
 
 ###########################
@@ -36,9 +36,9 @@ cli = click.Group()
 # (https://click.palletsprojects.com/en/5.x/advanced/#invoking-other-commands)
 @cli.command(context_settings=dict(max_content_width=89),)
 @click.option('config', '-c', type=click.Path(exists=True),
-              default=DOWNLOAD_CONFIG_PATH,
-              help=f"The configuration file. Defaults to: "
-                   f"{DOWNLOAD_CONFIG_PATH}")
+              help=f"The path of the configuration file. You can edit and use the file "
+                   f"provided by default in the git repository "
+                   f"(me-compute/config/download.yaml)")
 @click.pass_context
 def download(context, config):
     """Launches a download routine with Stream2segment"""
@@ -54,20 +54,20 @@ def download(context, config):
               help="end time of the events to consider (UTC ISO-formatted string). "
                    "If missing, it is set as `start` plus `duration`. If `start` is "
                    "also missing, it defaults as today at midnight")
-@click.option('duration', '-d', type=int, default=1,
-              help="duration in days of the time window to consider. If missing, "
+@click.option('duration', '-t', type=int, default=1,
+              help="time window, in days. If missing, "
                    "defaults to 1. If both time bounds (start, end) are provided, it is "
                    "ignored")
+@click.option('dconfig', '-d', type=click.Path(exists=True),
+              help=f"The path of the download configuration file used to download "
+                   f"the data. Used get the URL of the database where events and "
+                   f"waveforms will be fetched (all other properties will be ignored)")
 @click.option('config', '-c', type=click.Path(exists=True),
               default=PROCESS_CONFIG_PATH,
-              help=f"The configuration file used for processing data. "
-                   f"Defaults to: {PROCESS_CONFIG_PATH}")
-@click.option('dconfig', '-D', type=click.Path(exists=True),
-              default=DOWNLOAD_CONFIG_PATH,
-              help=f"The download configuration file employed. Only "
-                   f"used to get the URL of the database where events and waveforms"
-                   f"will be fetched (all other properties will be ignored). "
-                   f"Defaults to: {DOWNLOAD_CONFIG_PATH}")
+              help=f"The path of the configuration file used for processing the data. "
+                   f"If missing, the default configuration will be used (see the file "
+                   f"provided by default in the git repository for details: "
+                   f"me-compute/config/process.yaml)")
 @click.argument('root_output_dir', required=True)
 def process(start, end, duration, config, dconfig, root_output_dir):
     """
@@ -197,11 +197,13 @@ def _get_processing_output_dirname(start, end):
               help='Force overwrite HTML if it already exists. Default is false '
                    '(skip process if HTML exists)')
 @click.option('-t', '--html-template', type=click.Path(exists=True),
-              default=REPORT_TEMPLAE_PATH,
-              help=f'The HTML template file used to build the output report. This '
-                   f'parameter is for users experienced with jina2 who need'
-                   f'to customize the report appearance. '
-                   f'Defaults to: {REPORT_TEMPLAE_PATH}')
+              default=REPORT_TEMPLATE_PATH,
+              help=f"The path of the HTML template file used to build the output "
+                   f"report. This parameter is for users experienced with jina2 who "
+                   f"need to customize the report appearance. If missing, "
+                   f"the default template will be used (see the file provided "
+                   f"by default in the git repository for details: "
+                   f"me-compute/config/report.template.html)")
 @click.argument('input', required=False, nargs=-1)
 def report(force_overwrite, html_template, input):
     """

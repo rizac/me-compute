@@ -1,3 +1,1 @@
-# the directory 'base-config' has not to be included in the package BUT in the repository.
-# So comment it:
-# include mecompute/base-config/*.*
+include mecompute/base-config/*.*

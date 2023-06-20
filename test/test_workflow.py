@@ -7,7 +7,7 @@ import pytest
 import yaml
 from click.testing import CliRunner
 
-from mecompute.run import cli, DOWNLOAD_CONFIG_PATH, _get_processing_output_dirname
+from mecompute.run import cli
 from mecompute.stats import ParabolicScore2Weight, LinearScore2Weight
 
 TEST_DATA_DIR = abspath(join(dirname(__file__), 'data'))
@@ -37,7 +37,9 @@ def cleanup(request):
 
     # copy download config into tmp dir just created from the "standard"
     # download config path:
-    with open(DOWNLOAD_CONFIG_PATH, 'r') as _:
+    with open(join(dirname(dirname(__file__)), 'mecompute', 'base-config',
+                   'download.yaml'),
+              'r') as _:
         ret = yaml.safe_load(_)
     ret['start' if 'start' in ret else 'starttime'] = START
     ret['end' if 'end' in ret else 'endtime'] = END
@@ -82,7 +84,7 @@ def test_download():
 
 @pytest.mark.parametrize('params', [
     ['-s', START, '-e', END],
-    ['-d', 100*365]
+    ['-t', 100*365]
 ])
 def test_process(params):
     """test the processing routine"""
@@ -93,8 +95,8 @@ def test_process(params):
     existing = set(os.listdir(TEST_TMP_ROOT_DIR))
     # test from today back 100 years: just a way to assure we process
     # all downloaded segments:
-    result = runner.invoke(cli, ['process', '-d', 100*365,
-                                 '-D', TEST_DOWNLOAD_CONFIG_PATH] + params +
+    result = runner.invoke(cli, ['process',
+                                 '-d', TEST_DOWNLOAD_CONFIG_PATH] + params +
                            [TEST_TMP_ROOT_DIR])
 
     assert not result.exception
