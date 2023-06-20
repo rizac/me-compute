@@ -1,13 +1,21 @@
 # This workflow will install Python dependencies, run tests and lint with a single version of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Test Python application
+name: Test Python application on latest Ubuntu
 
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - 'mecompute/**'
+      - 'test/**'
+      - 'setup.py'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'mecompute/**'
+      - 'test/**'
+      - 'setup.py'
 
 permissions:
   contents: read
