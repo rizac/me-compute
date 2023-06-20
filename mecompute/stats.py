@@ -61,7 +61,6 @@ class Stats(Enum):
         # return "<p>".join(string)
 
 
-
 def get_report_rows(hdf_path):
     """Yield a series of dicts denoting a row of the report"""
     # Note: we can avoid OrderedDicts as the server uses python3.6.9, which
@@ -94,22 +93,22 @@ def get_report_rows(hdf_path):
     # 'st_lon' = segment.station.longitude
     # 'st_ele' = segment.station.elevation
     # 'integral' = corrected_spectrum_int_vel_square
-    dfr = pd.read_hdf(hdf_path)
+    dfr: pd.DataFrame = pd.read_hdf(hdf_path)  # noqa
 
     # fetch event ids from the event catalog:
-    sess = None
-    try:
-        sess = get_session(
-            yaml_load(join(dirname(__file__), 's2s_config', 'download.private.yaml'))[
-                'dburl'])
-        evid2catalogid = {item[0]: item[1] for item in
-                          sess.query(Event.id, Event.event_id).
-                              filter(Event.id.in_(dfr.ev_id.tolist()))}
-    except Exception as exc:
-        raise ValueError('Unable to fetch data from db (%s): %s' %
-                         (exc.__class__.__name__, str(exc)))
-    finally:
-        close_session(sess)
+    # sess = None
+    # try:
+    #     sess = get_session(
+    #         yaml_load(join(dirname(__file__), 's2s_config', 'download.private.yaml'))[
+    #             'dburl'])
+    #     evid2catalogid = {item[0]: item[1] for item in
+    #                       sess.query(Event.id, Event.event_id).
+    #                           filter(Event.id.in_(dfr.ev_id.tolist()))}
+    # except Exception as exc:
+    #     raise ValueError('Unable to fetch data from db (%s): %s' %
+    #                      (exc.__class__.__name__, str(exc)))
+    # finally:
+    #     close_session(sess)
 
     for ev_id, df_ in dfr.groupby('ev_id'):
 
@@ -118,7 +117,7 @@ def get_report_rows(hdf_path):
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
         row = {  # we are working in python 3.6.9+, order is preserved
             'event id': ev_id,
-            'catalog id': evid2catalogid.get(ev_id, ''),
+            'catalog id': df_.ev_evid.iat[0],  # evid2catalogid.get(ev_id, ''),
             # 'GEOFON event id': df_.ev_evid.iat[0],
             # df_ has all event related columns made of 1 unique value, so take 1st:
             'Mw': np.round(df_.ev_mag.iat[0], 2),

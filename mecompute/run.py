@@ -7,26 +7,28 @@ import json
 import os
 import sys
 from datetime import datetime, date, timedelta
-from os.path import abspath, join, dirname, isdir, basename, splitext, isfile, relpath
+from os.path import join, dirname, isdir, basename, splitext, isfile
 
 import click
 import yaml
 from jinja2 import Template
+from stream2segment.io.inputvalidation import BadParam
 
-sys.path.append(dirname(__file__))
 from mecompute.stats import get_report_rows, Stats
-
+from stream2segment.process import process as s2s_process
+from mecompute.process import main as main_function
 
 # global stuff (create config dir if non existing):
 _CONFIG_DIR = join(dirname(dirname(__file__)), 'config')
 try:
-    shutil.copytree(join(dirname(__file__), 'config_files'), _CONFIG_DIR)
+    shutil.copytree(join(dirname(__file__), 'base-config'), _CONFIG_DIR)
 except FileExistsError:
     pass
 
 # setup default config file paths:
 DOWNLOAD_CONFIG_PATH = join(_CONFIG_DIR, 'download.yaml')
 PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'process.yaml')
+REPORT_TEMPLAE_PATH = join(_CONFIG_DIR, 'report.template.html')
 
 
 ###########################
@@ -51,41 +53,41 @@ def download(context, config):
 
 
 @cli.command(context_settings=dict(max_content_width=89),)
+@click.option('start', '-s', type=click.DateTime(), default=None,
+              help="start time of the events to consider  (UTC ISO-formatted string). "
+                   "If missing, it is set as `end` minus `duration` days")
 @click.option('end', '-e', type=click.DateTime(), default=None,
-              help="end time (UTC ISO-formatted) of the events to consider. If missing "
-                   "it is set as `start` plus `duration` days. If `start` is also "
-                   "missing, it defaults as today at midnight (00h:00m:00s)")
+              help="end time of the events to consider (UTC ISO-formatted string). "
+                   "If missing, it is set as `start` plus `duration`. If `start` is "
+                   "also missing, it defaults as today at midnight")
 @click.option('duration', '-d', type=int, default=1,
               help="duration in days of the time window to consider. If missing, "
                    "defaults to 1. If both time bounds (start, end) are provided, it is "
-                   "ignored, if no time bounds are provided, it will set start as "
-                   "`duration` days ago. In any other case, it will set the missing "
-                   "time bound")
-@click.option('start', '-s', type=click.DateTime(), default=None,
-              help="start time (UTC ISO-formatted) of the events to consider. If "
-                   "missing, it is set as `end` minus `duration` days")
-@click.option('config', '-d', type=click.Path(exists=True),
+                   "ignored")
+@click.option('config', '-c', type=click.Path(exists=True),
               default=PROCESS_CONFIG_PATH,
               help=f"The configuration file used for processing data. "
                    f"Defaults to: {PROCESS_CONFIG_PATH}")
-@click.option('dconfig', '-d', type=click.Path(exists=True),
+@click.option('dconfig', '-D', type=click.Path(exists=True),
               default=DOWNLOAD_CONFIG_PATH,
-              help=f"The download configuration file employed. The file will be only "
-                   f"used to get the URL of the database where data will be extracted "
-                   f"and processed (all other properties will be ignored). "
+              help=f"The download configuration file employed. Only "
+                   f"used to get the URL of the database where events and waveforms"
+                   f"will be fetched (all other properties will be ignored). "
                    f"Defaults to: {DOWNLOAD_CONFIG_PATH}")
-@click.argument('root_out_dir', required=False)
-def process(end, duration, start, config, dconfig, root_out_dir):
+@click.argument('root_output_dir', required=True)
+def process(start, end, duration, config, dconfig, root_output_dir):
     """
-    process Magnitude energy data using stream2segment and saving the HDF file into
-    a child directory of the given root output directory. the child directory will be
-    named according the desired time window given as argument
+    process downloaded events computing their Magnitude energy. The output is a
+    directory that will be created inside the specified ROOT_OUTPUT_DIR: the directory
+    contains several files, including  a .HDF file with all waveforms processed (one row
+    per waveform) and several columns, among which "me_st" represents the computed
+    Magnitude energy.
 
-    ROOT_OUT_DIR: the destination root directory
+    ROOT_OUTPUT_DIR: the destination root directory
 
     Examples. In order to process all segments of the events occurred ...
 
-    ... in the last 7 days:
+    ... yesterday:
 
         process ROOT_OUT_DIR
 
@@ -93,24 +95,18 @@ def process(end, duration, start, config, dconfig, root_out_dir):
 
         process ROOT_OUT_DIR -d 2
 
-    ... in the seven days preceding the second of January 2021:
-
-        process -e 2021-01-02 ROOT_OUT_DIR
-
-    ... in the seven days following the second of January 2006:
-
-        process -s 2006-01-02 ROOT_OUT_DIR
-
-    ... in the two days following the second of January 2016:
+    ... on January the 2nd and January the 3rd, 2016:
 
         process -s 2016-01-02 -d 2 ROOT_OUT_DIR
     """
     try:
         with open(dconfig) as _:
             dburl = yaml.safe_load(_)['dburl']
-    except (FileNotFoundError, yaml.parser.ParseError, KeyError):
-        sys.exit(f'Error reading "dburl" from {config}. Check that file exists '
-                 f'and is a well-formed YAML')
+    except (FileNotFoundError, yaml.YAMLError, KeyError):
+        print(f'Error reading "dburl" from {config}. Check that file exists '
+              f'and is a well-formed YAML', file=sys.stderr)
+        sys.exit(1)
+
     start, end = _get_timebounds(start, end, duration)
 
     # # in case we want to query the db (e.g., min event, legacy code not used anymore):
@@ -119,25 +115,27 @@ def process(end, duration, start, config, dconfig, root_out_dir):
     # start = sess.query(sqlmin(Event.time)).scalar()  # (raises if multiple results)
     # close_session(sess)
 
-    sep = '--'  # file separator
+    base_name = _get_processing_output_dirname(start, end)
 
     # create output directory within destdir and assign new name:
-    destdir = dir_exists(root_out_dir, 'mecomputed' + sep + start +sep + end)
+    destdir = join(root_output_dir, base_name)
+    if not isdir(destdir):
+        os.makedirs(destdir)
+    if not isdir(destdir):
+        print(f'Not a directory: {destdir}')
+        sys.exit(1)
 
     segments_selection = {
-        'event.time': '(%s, %s]' % (start.isoformat(), end.isoformat()),
+        'event.time': '(%s, %s]' % (start, end),
         'has_valid_data': 'true',
         'maxgap_numsamples': '(-0.5, 0.5)'
     }
 
-    destfile_name = 'process-result'  + sep + start +sep + end
-
     # set logfile:
-    logfile = join(destdir, destfile_name + '.log')
+    logfile = join(destdir, base_name + '.log')
 
     # set outfile
-    outfile = join(destdir, destfile_name + '.hdf')
-
+    outfile = join(destdir, base_name + '.hdf')
 
     writer_options = {
         'chunksize': 10000,
@@ -152,9 +150,6 @@ def process(end, duration, start, config, dconfig, root_out_dir):
         }
     }
 
-    # context.forward(test)
-    from stream2segment.process import process as s2s_process
-    from .process import main as main_function
     try:
         s2s_process(main_function,
                     segments_selection=segments_selection,
@@ -169,19 +164,6 @@ def process(end, duration, start, config, dconfig, root_out_dir):
     # context.invoke(s2s_process, dburl=dburl, config=config, pyfile=pyfile,
     #                logfile=log, outfile=outfile)
     sys.exit(0)
-
-
-def dir_exists(*paths, mkdirs=True):
-    """Call `os.path.join` on the arguments and assures the resulting directory exists
-    before returning its full path. If `mkdirs` is True (the default), an attempt to
-    create the directory and all its ancestor ('s.makedirs`) is made
-    """
-    full_path = abspath(join(*paths))
-    if not isdir(full_path):
-        os.makedirs(full_path)
-    if not isdir(full_path):
-        raise ValueError(f'Not a directory: {full_path}')
-    return full_path
 
 
 def _get_timebounds(start=None, end=None, duration=1):
@@ -209,14 +191,25 @@ def _isoformat(time):
     return time.isoformat(sep='T')
 
 
+def _get_processing_output_dirname(start, end):
+    sep = '_'  # file separator
+    base_name_prefix = 'me-computed'
+    return base_name_prefix + sep + start + sep + end
+
+
 # (https://click.palletsprojects.com/en/5.x/advanced/#invoking-other-commands)
 @cli.command(context_settings=dict(max_content_width=89),)
-@click.option('-f', '--force-overwrite',
-              is_flag=True, help='Force overwrite HTML if already existing. '
-                                 'Default is false (do not regenerate '
-                                 'existing HTML)')
+@click.option('-f', '--force-overwrite', is_flag=True,
+              help='Force overwrite HTML if it already exists. Default is false '
+                   '(skip process if HTML exists)')
+@click.option('-t', '--html-template', type=click.Path(exists=True),
+              default=REPORT_TEMPLAE_PATH,
+              help=f'The HTML template file used to build the output report. This '
+                   f'parameter is for users experienced with jina2 who need'
+                   f'to customize the report appearance. '
+                   f'Defaults to: {REPORT_TEMPLAE_PATH}')
 @click.argument('input', required=False, nargs=-1)
-def report(force_overwrite, input):
+def report(force_overwrite, html_template, input):
     """
     Create HTML report from a given HDF file generated with the process command
     for facilitating inspection and visualization of the Me computation process
@@ -239,8 +232,7 @@ def report(force_overwrite, input):
     else:
         print("%d report(s) to be generated" % len(input))
 
-    config_in = join(dirname(__file__), 'report.template.html')
-    with open(config_in) as _:
+    with open(html_template) as _:
         template = Template(_.read())
 
     desc = Stats.as_help_dict()

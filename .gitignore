@@ -1,6 +1,7 @@
 # Project specific stuff (https://linuxize.com/post/gitignore-ignoring-files-in-git/):
 /config/
 .DS_Store
+/test/**/tmp
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

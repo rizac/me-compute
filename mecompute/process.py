@@ -134,9 +134,12 @@ from obspy import UTCDateTime  # , read, Trace, Stream,
 # from obspy.taup import TauPyModel
 from obspy.signal.konnoohmachismoothing import konno_ohmachi_smoothing
 
-from stream2segment.process import gui, SkipSegment
-from stream2segment.process.funclib.traces import ampratio, bandpass, cumsumsq,\
-    ampspec, powspec, sn_split  # , timeof, timeswhere, fft, maxabs, utcdatetime,
+# straem2segment functions for processing obspy Traces. This is just a list of possible
+# functions to show how to import them:
+from stream2segment.process import SkipSegment
+from stream2segment.process.funclib.traces import bandpass, cumsumsq,\
+    fft, ampspec, powspec, timeof, sn_split
+# stream2segment function for processing numpy arrays:
 from stream2segment.process.funclib.ndarrays import triangsmooth, snr
 
 try:
@@ -146,43 +149,29 @@ except ImportError:
 
 
 def main(segment, config):
-    """Main processing function. The user should implement here the processing for any
-    given selected segment. Useful links:
-
-    - Online tutorial (also available as Notebook locally with the command `s2s init`,
-      useful for testing):
-      https://github.com/rizac/stream2segment/wiki/using-stream2segment-in-your-python-code
-    - `stream2segment.process.funclib.traces` (small processing library implemented in
-       this program, most of its functions are imported here by default)
-    - ObsPy Stream, Trace UTCDateTime objects (the latter is the object
-      returned by all Trace and Stream datetime-based methods):
-      https://docs.obspy.org/packages/autogen/obspy.core.stream.Stream.html
-      https://docs.obspy.org/packages/autogen/obspy.core.trace.Trace.html
-      https://docs.obspy.org/packages/autogen/obspy.core.utcdatetime.UTCDateTime.html
+    """Main processing function, called iteratively for any segment selected from `imap`
+    or `process` functions of stream2segment.
 
     IMPORTANT: any exception raised here or from any sub-function will interrupt the
     whole processing routine with one special case: `stream2segment.process.SkipSegment`
-    exceptions will be logged to file and the execution will resume from the next
-    segment. Raise them to programmatically skip a segment, e.g.:
+    will resume from the next segment. Raise it to programmatically skip a segment, e.g.:
     ```
     if segment.sample_rate < 60:
         raise SkipSegment("segment sample rate too low")`
     ```
-    Handling exceptions at any point of a time consuming processing is non trivial:
-    some have to be skipped to save precious time, some must not be ignored and should
-    interrupt the routine to fix critical errors.
-    Therefore, we recommend to try to run your code on a smaller and possibly
-    heterogeneous dataset first: change temporarily the segment selection in the
-    configuration file, and then analyze any exception raised, if you want to ignore
-    the exception, then you can wrap only  the part of code affected in a
-    "try ... catch" statement, and raise a `SkipSegment`.
+    Hint: Because handling exceptions at any point of a time-consuming processing is
+    complex, we recommend to try to run your code on a smaller and possibly
+    heterogeneous dataset first: change temporarily the segment selection (See section
+    `if __name__ == "__main__"` at the end of the module), and inspect the logfile:
+    for any exception that is not a bug and should simply be ignored, wrap only
+    the part of code affected in a "try ... except" statement, and raise a `SkipSegment`.
     Also, please spend some time on refining the selection of segments: you might
     find that your code runs smoothly and faster by simply skipping certain segments in
     the first place.
 
     :param: segment: the object describing a downloaded waveform segment and its metadata,
         with a full set of useful attributes and methods detailed here:
-        https://github.com/rizac/stream2segment/wiki/the-segment-object
+        {{ THE_SEGMENT_OBJECT_WIKI_URL }}
 
     :param: config: a dictionary representing the configuration parameters
         accessible globally by all processed segments. The purpose of the `config`
@@ -225,9 +214,9 @@ def main(segment, config):
          Returning None or nothing is also valid: in this case the segment will be
          silently skipped.
 
-         A column named 'segment_db_id' with the segment database id (an integer uniquely
-         identifying the segment) will be automatically added to the dict / Series, or
-         to each row of the DataFrame, before writing it to file.
+         A column named '{{ SEGMENT_ID_COLNAME }}' with the segment database id (an integer
+         uniquely identifying the segment) will be automatically added to the dict /
+         Series, or to each row of the DataFrame, before writing it to file.
 
          SUPPORTED TYPES as elements of the returned dict/Series/DataFrame: all types
          supported by pandas:
@@ -236,6 +225,7 @@ def main(segment, config):
          For info on hdf and the pandas library (included in the package), see:
          https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_hdf.html
          https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#io-hdf5
+
     """
     # bandpass the trace, according to the event magnitude.
     # WARNING: this modifies the segment.stream() permanently!
@@ -366,7 +356,7 @@ def main(segment, config):
     ##############
 
     # discard saturated signals (according to the threshold set in the config file):
-    amp_ratio = ampratio(trace)
+    amp_ratio = np.true_divide(np.nanmax(np.abs(trace.data)), 2**23)
     flag_ratio = 1
     if amp_ratio >= config['amp_ratio_threshold']:
         flag_ratio = 0
@@ -378,10 +368,10 @@ def main(segment, config):
     return {
         'snr': snr_,
         'aascore': aascore,
-        'satu': flag_ratio,
+        'satu': flag_ratio,  # signal_is_saturated
         'dist_deg': distance_deg,
         's_r': trace.stats.sampling_rate,
-        'me_st': me_st,
+        'me_st': me_st,  # station_magnitude_energy
         'channel': segment.channel.channel,
         'location': segment.channel.location,
         'ev_id': segment.event.id,
@@ -398,11 +388,11 @@ def main(segment, config):
         'st_lat': segment.station.latitude,
         'st_lon': segment.station.longitude,
         'st_ele': segment.station.elevation,
-        'integral': corrected_spectrum_int_vel_square
+        'corrected_spectrum_velocity_squared_integral': corrected_spectrum_int_vel_square
     }
 
 
-@gui.preprocess
+# @gui.preprocess
 def bandpass_remresp(segment, config):
     """Applies a pre-process on the given segment waveform by
     filtering the signal and removing the instrumental response.
@@ -528,43 +518,43 @@ def _spectrum(trace, config, starttime=None, endtime=None):
     return 0, df_, spec_
 
 
-@gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
-def sn_spectra(segment, config):
-    """Compute the signal and noise spectra, as dict of strings mapped to
-    tuples (x0, dx, y). Does NOT modify the segment's stream or traces in-place
-
-    :return: a dict with two keys, 'Signal' and 'Noise', mapped respectively to
-        the tuples (f0, df, frequencies)
-
-    :raise: an Exception if `segment.stream()` is empty or has more than one
-        trace (possible gaps/overlaps)
-    """
-    stream = segment.stream()
-    assert1trace(stream)  # raise and return if stream has more than one trace
-    return signal_noise_spectra(segment, config)
-
-
-@gui.plot
-def cumulative(segment, config):
-    """Computes the cumulative of the squares of the segment's trace in the
-    form of a Plot object. Modifies the segment's stream or traces in-place.
-    Normalizes the returned trace values in [0,1]
-
-    :return: an obspy.Trace
-
-    :raise: an Exception if `segment.stream()` is empty or has more than one
-        trace (possible gaps/overlaps)
-    """
-    stream = segment.stream()
-    assert1trace(stream)  # raise and return if stream has more than one trace
-    return cumsumsq(stream[0], normalize=True, copy=False)
+# @gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
+# def sn_spectra(segment, config):
+#     """Compute the signal and noise spectra, as dict of strings mapped to
+#     tuples (x0, dx, y). Does NOT modify the segment's stream or traces in-place
+#
+#     :return: a dict with two keys, 'Signal' and 'Noise', mapped respectively to
+#         the tuples (f0, df, frequencies)
+#
+#     :raise: an Exception if `segment.stream()` is empty or has more than one
+#         trace (possible gaps/overlaps)
+#     """
+#     stream = segment.stream()
+#     assert1trace(stream)  # raise and return if stream has more than one trace
+#     return signal_noise_spectra(segment, config)
 
 
-@gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
-def check_spe(segment,config):
-    stream = segment.stream()
-    assert1trace(stream)  # raise and return if stream has more than one trace
-    return signal_smooth_spectra(segment, config)
+# @gui.plot
+# def cumulative(segment, config):
+#     """Computes the cumulative of the squares of the segment's trace in the
+#     form of a Plot object. Modifies the segment's stream or traces in-place.
+#     Normalizes the returned trace values in [0,1]
+#
+#     :return: an obspy.Trace
+#
+#     :raise: an Exception if `segment.stream()` is empty or has more than one
+#         trace (possible gaps/overlaps)
+#     """
+#     stream = segment.stream()
+#     assert1trace(stream)  # raise and return if stream has more than one trace
+#     return cumsumsq(stream[0], normalize=True, copy=False)
+
+
+# @gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
+# def check_spe(segment,config):
+#     stream = segment.stream()
+#     assert1trace(stream)  # raise and return if stream has more than one trace
+#     return signal_smooth_spectra(segment, config)
 
 
 def signal_smooth_spectra(segment, config):

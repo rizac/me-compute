@@ -69,10 +69,10 @@ and `[END]` are the ISO-formatted time bounds of the previous day) with the
 following files:
 
 
-* mecomputed--[START]--[END]
-  * process--[START]--[END].hdf
-  * process--[START]--[END].yaml
-  * process--[START]--[END].log
+* me-computed_[START]_[END]
+  * me-computed_[START]_[END].hdf
+  * me-computed_[START]_[END].yaml
+  * me-computed_[START]_[END].log
 
 (If you want to customize the time bounds, provide the relative options
 `-s` and `-e`. Type
