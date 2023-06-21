@@ -263,6 +263,14 @@ def report(force_overwrite, html_template, input):
 
             if not evts:
                 continue
+
+            with open(csv_fpath, 'w', newline='') as _:
+                fieldnames = evts[0].keys()
+                writer = csv.DictWriter(_, fieldnames=fieldnames)
+                writer.writeheader()
+                for evt in evts:
+                    writer.writerow(evt)
+
             with open(report_fpath, 'w') as _:
                 events_select = {}
                 events_table = {}
@@ -291,12 +299,7 @@ def report(force_overwrite, html_template, input):
                                         description=desc,
                                         event_stations=evts_sations))
             written += 1
-            with open(csv_fpath, 'w', newline='') as _:
-                fieldnames = evts[0].keys()
-                writer = csv.DictWriter(_, fieldnames=fieldnames)
-                writer.writeheader()
-                for evt in evts:
-                    writer.writerow(evt)
+
         except Exception as exc:
             print('ERROR: %s while generating %s: %s' % (exc.__class__.__name__,
                                                          report_fpath, str(exc)),
