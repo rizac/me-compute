@@ -19,64 +19,14 @@
 	<!-- Layout related style (necessary): -->
 	<style type="text/css">
 		body{
-			padding: 0px;
+			padding: 15px;
 			margin: 0px;
 			width:100vw;
 			height:100vh;
 		}
-		body > div, h3{
-			margin-left: 0.5rem;
-			margin-right: 0.5rem;
-		}
-		#map {
-			flex: 1 0 auto;
-			margin-bottom:.5rem;
-		}
-		.main-div{
-			overflow:hidden;
-			flex: 1 0 auto;
-		}
-		.side-div{
-			flex: 1 0 auto;
-			width: 100%;
-			max-width: 100%;
-		}
-		.table-div{
-			overflow:auto;
-			max-width: 100%;
-		}
-		table thead td, table thead th{  /* Make sticky header: https://stackoverflow.com/a/47923622 */
-			position: sticky; top: 0; z-index: 1;
-			background-color: white; /* make tbody rows behind theader row, otherwise they overlap */
-		}
-		table{
-			display:block;
-			border-collapse: collapse;
-		}
-		table td button {
-			width: 100%;
-		}
-		tr.selected{} /* this class is overwritten below only if we have more than one event to highlight the selected one */
-		.header{
-			position: relative;
-			text-align: center;
-		}
-		#legend-btn{
-			position: absolute;
-			right: 0;
-			bottom:0;
-		}
-		.desc{
-			text-align:justify;
-			position:fixed;
-			padding:1rem;
-			top: 5rem;
-			right:.5rem;
-			line-height:2rem;
-			max-width:33vw;
-			max-height: 50vh;
-			overflow: auto;
-			z-index: 1000;
+		table td{
+			vertical-align: top;
+			text-align: left;
 		}
 	</style>
 	<!-- appearance style (important, not necessary): -->
@@ -91,12 +41,6 @@
 		}
 		#map{
 			border: 1px solid #CCC;
-			margin-top:1rem;
-		}
-		button.btn:focus {
-			outline: none;
-			box-shadow: none;
-			box-shadow: none !important;
 		}
 	</style>
 
@@ -104,25 +48,23 @@
 
 </head>
 <body class="d-flex flex-row">
-<div class="header" class="d-flex flex-column">
+<div class="d-flex flex-column me-2 mr-2">
 	<div>Event: <select>
 		{%- for evt_id, evt_catalog_id in events_select.items() -%}
 			<option onclick="showEvent({{ evt_id }})">{{ evt_catalog_id }}</option>
 		{%- endfor -%}
 	</select>
 	</div>
-	<div>
+	<div class='mt-2'>
 		{%- for evt_id, evt_table_content in events_table.items() -%}
-			<table id='table-{{ evt_id }}' class='event-table'>
+			<table id='table-{{ evt_id }}' class='table-bordered'>
 				{{ evt_table_content | safe }}
 			</table>
 		{%- endfor -%}
 	</div>
 </div>
-<div class="main-div d-flex flex-column align-items-center">
-	<div class="side-div d-flex flex-column">
-		<div id="map"></div>
-	</div>
+<div class="d-flex flex-column" style="flex: 1 0 auto">
+	<div id="map" class='d-flex' style='flex: 1 0 auto;'></div>
 </div>
 
 
@@ -170,9 +112,9 @@ var map = L.map('map', {
 
 
 // Create map legend (with color scale):
-var legend = L.control({position: 'topright'});
+var legend = L.control({position: 'bottomleft'});
 legend.onAdd = function (map) {
-	var div = L.DomUtil.create('div', 'info legend');
+	var div = L.DomUtil.create('div', 'leaflet-control-layers p-2 small');
 	div.innerHTML = "<span style='color:seagreen'>&#9711;</span> Event<br>" +
 		"&#9651; Station(s) (click on symbol for details)<br>" + ` Station color: &Delta;Me = Me_station - Me_mean:<br>${residualsFullScale[0]} `;
 	// display the colorbar as a series of spans, first negative scale then positive scale
@@ -193,7 +135,7 @@ legend.addTo(map);
 
 
 function showEvent(event_id){
-	for (var elm of document.querySelectorAll('.event-table')){
+	for (var elm of document.querySelectorAll("[id^='table-']")){
 		elm.style.display='none';
 	}
 	document.getElementById('table-'+event_id).style.display = '';
