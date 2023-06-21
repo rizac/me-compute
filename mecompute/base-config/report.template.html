@@ -49,15 +49,18 @@
 </head>
 <body class="d-flex flex-row">
 <div class="d-flex flex-column me-2 mr-2">
-	<div>Event: <select>
+	<div class="align-items-baseline text-nowrap">Event: <select>
 		{%- for evt_id, evt_catalog_id in events_select.items() -%}
 			<option onclick="showEvent({{ evt_id }})">{{ evt_catalog_id }}</option>
 		{%- endfor -%}
 	</select>
+		{%- for evt_id, evt_catalog_url in events_url.items() -%}
+			<a style="display:none" id='event-ref-{{ evt_id }}' href="{{ evt_catalog_url }}" target="_blank">source QuakeML</a>
+		{%- endfor -%}
 	</div>
 	<div class='mt-2'>
 		{%- for evt_id, evt_table_content in events_table.items() -%}
-			<table id='table-{{ evt_id }}' class='table-bordered'>
+			<table id='event-table-{{ evt_id }}' class='table-bordered' style="display:none">
 				{{ evt_table_content | safe }}
 			</table>
 		{%- endfor -%}
@@ -135,10 +138,14 @@ legend.addTo(map);
 
 
 function showEvent(event_id){
-	for (var elm of document.querySelectorAll("[id^='table-']")){
+	for (var elm of document.querySelectorAll("[id^='event-table-']")){
 		elm.style.display='none';
 	}
-	document.getElementById('table-'+event_id).style.display = '';
+	document.getElementById('event-table-'+event_id).style.display = '';
+	for (var elm of document.querySelectorAll("[id^='event-ref-']")){
+		elm.style.display='none';
+	}
+	document.getElementById('event-ref-'+event_id).style.display = '';
 	showMap(event_id);
 }
 

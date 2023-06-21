@@ -266,6 +266,7 @@ def report(force_overwrite, html_template, input):
             with open(report_fpath, 'w') as _:
                 events_select = {}
                 events_table = {}
+                events_url = {}
                 sel_event_id = evts[0]['id']
                 for evt in evts:
                     ev_id = evt.pop('id')
@@ -273,10 +274,9 @@ def report(force_overwrite, html_template, input):
                     ev_catalog_id = ev_catalog_url.split('=')[-1]
                     # map id to the name displayed on the select:
                     events_select[ev_id] = ev_catalog_id
+                    events_url[ev_id] = ev_catalog_url
                     # populate the table:
-                    table = f'<tr><th>{ev_catalog_id}</th><th><a target="_blank" href="'
-                    table += ev_catalog_url
-                    table += '">source QuakeML</a></th></tr>'
+                    table = ''
                     for key, val in evt.items():
                         if key == 'time':
                             val = val.replace('T', '<br>')
@@ -284,6 +284,7 @@ def report(force_overwrite, html_template, input):
                     events_table[ev_id] = table
 
                 _.write(template.render(title=title,
+                                        events_url=events_url,
                                         events_select=events_select,
                                         events_table=events_table,
                                         selected_event_id=sel_event_id,
