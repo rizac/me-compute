@@ -4,15 +4,15 @@ from os.path import join, dirname
 import pandas as pd
 import numpy as np
 import math
-import sys
+# import sys
 
 
 from enum import Enum
 
-from stream2segment.download.db import get_session
-from stream2segment.io import yaml_load
-from stream2segment.io.db import close_session
-from stream2segment.download.db.models import Event
+# from stream2segment.download.db import get_session
+# from stream2segment.io import yaml_load
+# from stream2segment.io.db import close_session
+# from stream2segment.download.db.models import Event
 
 pct = (5, 95)  # percentiles
 score_th = 0.75  # anomaly score thresold
@@ -63,100 +63,70 @@ class Stats(Enum):
 
 def get_report_rows(hdf_path):
     """Yield a series of dicts denoting a row of the report"""
-    # Note: we can avoid OrderedDicts as the server uses python3.6.9, which
-    # already implements dicts preserving keys insertion order
-    # (https://stackoverflow.com/a/39537308)
-
-    # read computed dataframe
-    # these are the columns of the hdf:
-    # (medaily.py file on preocessing dir, on the server):
-    #
-    # 'snr' = snr_
-    # 'aascore': aascore
-    # 'satu' = flag_ratio
-    # 'dist_deg' = distance_deg  # dist
-    # 's_r' = trace.stats.sampling_rate
-    # 'me_st' = me_st
-    # 'channel' = segment.channel.channel
-    # 'location' = segment.channel.channel
-    # 'ev_id' = segment.event.id  # event metadata
-    # 'ev_time' = segment.event.time
-    # 'ev_lat' = segment.event.latitude
-    # 'ev_lon' = segment.event.longitude
-    # 'ev_dep' = segment.event.depth_km
-    # 'ev_mag' = segment.event.magnitude
-    # 'ev_mty' = segment.event.mag_type
-    # 'st_id' = segment.station.id  # station metadata
-    # 'network' = segment.station.network
-    # 'station' = segment.station.station
-    # 'st_lat' = segment.station.latitude
-    # 'st_lon' = segment.station.longitude
-    # 'st_ele' = segment.station.elevation
-    # 'integral' = corrected_spectrum_int_vel_square
+    # see process.py:main for a list of columns:
     dfr: pd.DataFrame = pd.read_hdf(hdf_path)  # noqa
 
-    # fetch event ids from the event catalog:
-    # sess = None
-    # try:
-    #     sess = get_session(
-    #         yaml_load(join(dirname(__file__), 's2s_config', 'download.private.yaml'))[
-    #             'dburl'])
-    #     evid2catalogid = {item[0]: item[1] for item in
-    #                       sess.query(Event.id, Event.event_id).
-    #                           filter(Event.id.in_(dfr.ev_id.tolist()))}
-    # except Exception as exc:
-    #     raise ValueError('Unable to fetch data from db (%s): %s' %
-    #                      (exc.__class__.__name__, str(exc)))
-    # finally:
-    #     close_session(sess)
-
-    for ev_id, df_ in dfr.groupby('ev_id'):
+    for ev_id, df_ in dfr.groupby('event_id'):
 
         group_sta = df_.groupby(['network', 'station'])
 
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
-        row = {  # we are working in python 3.6.9+, order is preserved
-            'event id': ev_id,
-            'catalog id': df_.ev_evid.iat[0],  # evid2catalogid.get(ev_id, ''),
-            # 'GEOFON event id': df_.ev_evid.iat[0],
-            # df_ has all event related columns made of 1 unique value, so take 1st:
-            'Mw': np.round(df_.ev_mag.iat[0], 2),
-            'lat': np.round(df_.ev_lat.iat[0], 2),
-            'lon': np.round(df_.ev_lon.iat[0], 2),
-            'depth km': np.round(df_.ev_dep.iat[0], 1),
-            'time': df_.ev_time.iat[0].isoformat('T'),
-            'stations': group_sta.ngroups
+        event = {  # we are working in python 3.6.9+, order is preserved
+            'catalog_url': f"{df_['event_catalog_url'].iat[0]}?"
+                           f"eventid={df_['event_catalog_id'].iat[0]}",
+            'magnitude': float(np.round(df_['event_magnitude'].iat[0], 2)),
+            'magnitude_type': df_['event_magnitude_type'].iat[0],
+            'Me_mean': np.nan,
+            'Me_stddev': np.nan,
+            'Me_waveforms_used': 0,
+            'latitude': float(np.round(df_['event_latitude'].iat[0], 3)),
+            'longitude': float(np.round(df_['event_longitude'].iat[0], 3)),
+            'depth_km': float(np.round(df_['event_depth_km'].iat[0], 1)),
+            'time': df_['event_time'].iat[0].isoformat('T'),
+            'stations': int(group_sta.ngroups),
+            'waveforms': 0,
+            'id': int(ev_id),  # noqa
         }
 
-        values = np.asarray(df_.me_st.values)
+        values = np.asarray(df_['station_magnitude_energy'].values)
         waveforms_count = np.sum(np.isfinite(values))
         if not waveforms_count:
             continue
-        row['waveforms'] = waveforms_count
+        event['waveforms'] = int(waveforms_count)
 
-        anomalyscores = np.asarray(df_.aascore.values)
+        # anomalyscores = np.asarray(df_['signal_amplitude_anomaly_score'].values)
+        me, me_std, num_waveforms = Stats.Me_p.compute(values)
+        event['Me_mean'] = float(np.round(me, 2))
+        event['Me_stddev'] = float(np.round(me_std, 3))
+        event['Me_waveforms_used'] = int(num_waveforms)
 
-        row.update(dict(zip(['Me_p M', 'Me_p SD', 'Me_p #'], Stats.Me_p.compute(values))))
-        row.update(dict(zip(['Me_t M', 'Me_t SD', 'Me_t #'], Stats.Me_t.compute(values, anomalyscores))))
-        row.update(dict(zip(['Me_w M', 'Me_w SD'], Stats.Me_w.compute(values, anomalyscores))))
-        row.update(dict(zip(['Me_w2 M', 'Me_w2 SD'], Stats.Me_w2.compute(values, anomalyscores))))
+        # row.update(dict(zip(['Me_mean', 'Me_stddev', 'Me_waveforms_used'],
+        #                     Stats.Me_p.compute(values))))
+        # row.update(dict(zip(['Me_t M', 'Me_t SD', 'Me_t #'], Stats.Me_t.compute(values, anomalyscores))))
+        # row.update(dict(zip(['Me_W (mean)', 'Me_W (stddev)'], Stats.Me_w.compute(values, anomalyscores))))
+        # row.update(dict(zip(['Me_w2 M', 'Me_w2 SD'], Stats.Me_w2.compute(values, anomalyscores))))
+
+        # replace NaNs with None:
+        for key, isna in zip(list(event), pd.isna(list(event.values()))):
+            if isna:
+                event[key] = None
 
         # Stations residuals:
-        me_st_mean = Stats.Me_p.compute(values)[0] # row['Me M']
+        me_st_mean = Stats.Me_p.compute(values)[0]  # row['Me M']
         invalid_mean = me_st_mean is None or not np.isfinite(me_st_mean)
         stas = []
         for (net, sta), sta_df in group_sta:
-            lat = np.round(sta_df['st_lat'].iat[0], 3)
-            lon = np.round(sta_df['st_lon'].iat[0], 3)
-            res = np.nan if invalid_mean else sta_df['me_st'].iat[0] - me_st_mean
-            dist_deg = np.round(sta_df['dist_deg'].iat[0], 3)
+            lat = np.round(sta_df['station_latitude'].iat[0], 3)
+            lon = np.round(sta_df['station_longitude'].iat[0], 3)
+            res = np.nan if invalid_mean else sta_df['station_magnitude_energy'].iat[0] - me_st_mean
+            dist_deg = np.round(sta_df['event_station_distance_deg'].iat[0], 3)
             stas.append([lat if np.isfinite(lat) else None,
                          lon if np.isfinite(lon) else None,
                          net + '.' + sta,
                          res if np.isfinite(res) else None,
                          dist_deg if np.isfinite(dist_deg) else None])
 
-        yield ev_id, {k: v for k, v in row.items()}, stas
+        yield event, stas
         # yield row
 
 

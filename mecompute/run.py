@@ -5,16 +5,19 @@ on the terminal
 import json
 import os
 import sys
+import csv
 from datetime import datetime, date, timedelta
 from os.path import join, dirname, isdir, basename, splitext, isfile
 
 import click
+import pandas as pd
 import yaml
 from jinja2 import Template
 from stream2segment.io.inputvalidation import BadParam
+from stream2segment.process.db.models import WebService
 
 from mecompute.stats import get_report_rows, Stats
-from stream2segment.process import process as s2s_process
+from stream2segment.process import process as s2s_process, imap
 from mecompute.process import main as main_function
 
 
@@ -96,7 +99,7 @@ def process(start, end, duration, config, dconfig, root_output_dir):
         with open(dconfig) as _:
             dburl = yaml.safe_load(_)['dburl']
     except (FileNotFoundError, yaml.YAMLError, KeyError):
-        print(f'Error reading "dburl" from {config}. Check that file exists '
+        print(f'Error reading "dburl" from {dconfig}. Check that file exists '
               f'and is a well-formed YAML', file=sys.stderr)
         sys.exit(1)
 
@@ -108,7 +111,7 @@ def process(start, end, duration, config, dconfig, root_output_dir):
     # start = sess.query(sqlmin(Event.time)).scalar()  # (raises if multiple results)
     # close_session(sess)
 
-    base_name = _get_processing_output_dirname(start, end)
+    base_name = _get_processing_output_dirname(start, end, dburl)
 
     # create output directory within destdir and assign new name:
     destdir = join(root_output_dir, base_name)
@@ -130,32 +133,49 @@ def process(start, end, duration, config, dconfig, root_output_dir):
     # set outfile
     outfile = join(destdir, base_name + '.hdf')
 
-    writer_options = {
-        'chunksize': 10000,
-        # hdf needs a fixed length for all columns: if you write string columns
-        # you need to tell in advance the size allocated with 'min_itemsize', e.g:
-        'min_itemsize': {
-            'network': 2,
-            'station': 5,
-            'location': 2,
-            'channel': 3,
-            'ev_mty': 2
-        }
+    # handle string columns:
+    # store each column possible values in a dict (handle str vs categorical at the end):
+    categorical_columns = {  # for
+        'network': {},
+        'station': {},
+        'location': {},
+        'channel': {},
+        'event_magnitude_type': {},
+        'event_catalog_url': {}
     }
-
+    # option to write str columns to dataframe:
+    min_itemsize = {}
+    processed_waveforms = []
     try:
-        s2s_process(main_function,
-                    segments_selection=segments_selection,
-                    dburl=dburl,
-                    config=config, logfile=logfile, outfile=outfile,
-                    multi_process=True, chunksize=None, writer_options=writer_options)
+        for res_dict in imap(main_function,
+                             segments_selection=segments_selection,
+                             dburl=dburl,
+                             config=config, logfile=logfile,
+                             multi_process=True, chunksize=None):
+            for col in categorical_columns:
+                value = res_dict[col]
+                if value not in categorical_columns[col]:
+                    categorical_columns[col][value] = len(categorical_columns[col])
+                res_dict[col] = categorical_columns[col][value]
+            processed_waveforms.append(res_dict)
+
+        dataframe = pd.DataFrame(processed_waveforms)
+        # handle str columns, convert them to str or categorical:
+        for col in categorical_columns:
+            dtype = 'str' if len(categorical_columns[col]) > len(dataframe) / 2 \
+                else 'category'
+            mapping = {v: k for k, v in categorical_columns[col].items()}
+            dataframe[col] = dataframe[col].map(mapping).astype(dtype)
+            if dtype == 'str':
+                min_itemsize[col] = max(len(v) for v in mapping.values())
+
+        dataframe.to_hdf(outfile, format='table', key='me_computed_waveforms_table',
+                         min_itemsize=min_itemsize or None)
+
     except BadParam as bpar:
         print(f'ERROR: {str(bpar)}', file=sys.stderr)
         sys.exit(1)
 
-    # dburl = yaml_load(join(s2s_config_dir, 'download.private.yaml'))['dburl']
-    # context.invoke(s2s_process, dburl=dburl, config=config, pyfile=pyfile,
-    #                logfile=log, outfile=outfile)
     sys.exit(0)
 
 
@@ -184,10 +204,10 @@ def _isoformat(time):
     return time.isoformat(sep='T')
 
 
-def _get_processing_output_dirname(start, end):
-    sep = '_'  # file separator
-    base_name_prefix = 'me-computed'
-    return base_name_prefix + sep + start + sep + end
+def _get_processing_output_dirname(start, end, dburl):
+    sep = '__'  # file separator
+    base_name_prefix = 'me-compute'
+    return base_name_prefix + sep + basename(dburl) + sep + start + sep + end
 
 
 # (https://click.palletsprojects.com/en/5.x/advanced/#invoking-other-commands)
@@ -212,13 +232,16 @@ def report(force_overwrite, html_template, input):
         generated with the `process` command. Each report file (HTML, QuakeML)
         will be saved in the same directory of the input
     """
-    print("%d process file(s) found" % len(input))
+    input_count = len(input)
+    print("%d process file(s) found" % input_count)
     # collect a dict mapping process file -> report file but only for files not existing
     # (unless force_overwrite is True):
-    input = {_: splitext(_)[0] + '.html'
-             for _ in input if force_overwrite or not isfile(splitext(_)[0] + '.html')}
+    input = [(_, splitext(_)[0] + '.html', splitext(_)[0] + '.csv')
+             for _ in input if force_overwrite or not isfile(splitext(_)[0] + '.html')]
     if not input:
         print("No report to be generated")
+        if input_count:
+            print('If you want to overwrite existing file, use option -f')
         sys.exit(0)
     else:
         print("%d report(s) to be generated" % len(input))
@@ -228,23 +251,57 @@ def report(force_overwrite, html_template, input):
 
     desc = Stats.as_help_dict()
     written = 0
-    for process_fpath, report_fpath in input.items():
+    for process_fpath, report_fpath, csv_fpath in input:
         title = splitext(basename(process_fpath))[0]
         try:
-            evts, stas = [], {}
-            for evid, evt_stats, stations in get_report_rows(process_fpath):
-                evts.append(evt_stats)
-                stas[evid] = stations
+            evts, evts_sations = [], {}
+            for evt, stations in get_report_rows(process_fpath):
+                evid = evt['id']
+                evts.append(evt)
+                evts_sations[evid] = [evt['latitude'], evt['longitude'],
+                                      stations]
+
             if not evts:
                 continue
             with open(report_fpath, 'w') as _:
-                _.write(template.render(title=title, events=evts, description=desc,
-                                        stations=json.dumps(stas, separators=(',', ':'))))
+                events_select = {}
+                events_table = {}
+                sel_event_id = evts[0]['id']
+                for evt in evts:
+                    ev_id = evt.pop('id')
+                    ev_catalog_url = evt.pop('catalog_url')
+                    ev_catalog_id = ev_catalog_url.split('=')[-1]
+                    # map id to the name displayed on the select:
+                    events_select[ev_id] = ev_catalog_id
+                    # populate the table:
+                    table = f'<tr><th>{ev_catalog_id}</th><th><a target="_blank" href="'
+                    table += ev_catalog_url
+                    table += '">source QuakeML</a></th></tr>'
+                    for key, val in evt.items():
+                        if key == 'time':
+                            val = val.replace('T', '<br>')
+                        table += f"<tr><td>{key}</td><td>{val}</td></tr>"
+                    events_table[ev_id] = table
+
+                _.write(template.render(title=title,
+                                        events_select=events_select,
+                                        events_table=events_table,
+                                        selected_event_id=sel_event_id,
+                                        description=desc,
+                                        event_stations=evts_sations))
             written += 1
+            with open(csv_fpath, 'w', newline='') as _:
+                fieldnames = evts[0].keys()
+                writer = csv.DictWriter(_, fieldnames=fieldnames)
+                writer.writeheader()
+                for evt in evts:
+                    writer.writerow(evt)
         except Exception as exc:
             print('ERROR: %s while generating %s: %s' % (exc.__class__.__name__,
                                                          report_fpath, str(exc)),
                   file=sys.stderr)
+            import traceback
+            traceback.print_exception(exc)
             # sys.exit(1)
     print("%d reports generated" % written)
     sys.exit(0)

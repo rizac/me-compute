@@ -125,6 +125,7 @@ successive equally spaced points (x values) in any of these forms:
 # from math import factorial  # for savitzky_golay function
 # import numpy for efficient computation:
 import numpy as np
+import pandas as pd
 from scipy.interpolate import CubicSpline
 from scipy.constants import pi
 # from scipy import stats
@@ -371,19 +372,20 @@ def main(segment, config):
         'station': segment.station.station,
         'location': segment.channel.location,
         'channel': segment.channel.channel,
-        'event_id': segment.event.id,
+        'event_magnitude': segment.event.magnitude,
+        'event_magnitude_type': segment.event.mag_type,
+        'event_catalog_url': segment.event.webservice.url,
         'event_catalog_id': segment.event.event_id,
         'event_time': segment.event.time,
         'event_latitude': segment.event.latitude,
         'event_longitude': segment.event.longitude,
-        'event_depth': segment.event.depth_km,
-        'event_magnitude_type': segment.event.magnitude,
-        'event_magnitude': segment.event.mag_type,
+        'event_depth_km': segment.event.depth_km,
         'event_station_distance_deg': distance_deg,
-        'station_id': segment.station.id,
+        'event_id': segment.event.id,
         'station_latitude': segment.station.latitude,
         'station_longitude': segment.station.longitude,
         'station_elevation': segment.station.elevation,
+        'station_id': segment.station.id,
         'signal_sampling_rate': trace.stats.sampling_rate,
         'signal_to_noise_ratio': snr_,
         'signal_amplitude_anomaly_score': aascore,
@@ -516,106 +518,4 @@ def _spectrum(trace, config, starttime=None, endtime=None):
         #         count=1, enforce_no_matrix=False, max_memory_usage=512,
         #         normalize=False)
 
-    return 0, df_, spec_
-
-
-# @gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
-# def sn_spectra(segment, config):
-#     """Compute the signal and noise spectra, as dict of strings mapped to
-#     tuples (x0, dx, y). Does NOT modify the segment's stream or traces in-place
-#
-#     :return: a dict with two keys, 'Signal' and 'Noise', mapped respectively to
-#         the tuples (f0, df, frequencies)
-#
-#     :raise: an Exception if `segment.stream()` is empty or has more than one
-#         trace (possible gaps/overlaps)
-#     """
-#     stream = segment.stream()
-#     assert1trace(stream)  # raise and return if stream has more than one trace
-#     return signal_noise_spectra(segment, config)
-
-
-# @gui.plot
-# def cumulative(segment, config):
-#     """Computes the cumulative of the squares of the segment's trace in the
-#     form of a Plot object. Modifies the segment's stream or traces in-place.
-#     Normalizes the returned trace values in [0,1]
-#
-#     :return: an obspy.Trace
-#
-#     :raise: an Exception if `segment.stream()` is empty or has more than one
-#         trace (possible gaps/overlaps)
-#     """
-#     stream = segment.stream()
-#     assert1trace(stream)  # raise and return if stream has more than one trace
-#     return cumsumsq(stream[0], normalize=True, copy=False)
-
-
-# @gui.plot('r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
-# def check_spe(segment,config):
-#     stream = segment.stream()
-#     assert1trace(stream)  # raise and return if stream has more than one trace
-#     return signal_smooth_spectra(segment, config)
-
-
-def signal_smooth_spectra(segment, config):
-    # This function assumes stream has only one trace
-    stream = segment.stream()
-    atime_shift = config['sn_windows']['arrival_time_shift']
-    arrival_time = UTCDateTime(segment.arrival_time) + atime_shift
-    duration = get_segment_window_duration(segment, config)
-    signal_wdw, noise_wdw = sn_split(stream[0], arrival_time, duration)
-    x0_sig, df_sig, sig = _spectrum(signal_wdw,config)
-    x0_sig1, df_sig1, sig1 = _spectrumnosmooth(signal_wdw,config)
-    x0_sig2, df_sig2, sig2 = _spectrumKO(signal_wdw,config)
-    return {
-        'noSmooth': (x0_sig1, df_sig1, sig1),
-        'Triangular': (x0_sig, df_sig, sig),
-        'Konno-Ohmachi': (x0_sig2, df_sig2, sig2)
-    }
-
-
-def _spectrumnosmooth(trace, config, starttime=None, endtime=None):
-    taper_max_percentage = config['sn_spectra']['taper']['max_percentage']
-    taper_type = config['sn_spectra']['taper']['type']
-    if config['sn_spectra']['type'] == 'pow':
-        func = powspec  # copies the trace if needed
-    elif config['sn_spectra']['type'] == 'amp':
-        func = ampspec  # copies the trace if needed
-    else:
-        # raise TypeError so that if called from within main, the iteration stops
-        raise TypeError("config['sn_spectra']['type'] expects either 'pow' or 'amp'")
-
-    df_, spec_ = func(trace, starttime, endtime,
-                      taper_max_percentage=taper_max_percentage, taper_type=taper_type)
-    return 0, df_, spec_
-
-
-def _spectrumKO(trace, config, starttime=None, endtime=None):
-    taper_max_percentage = config['sn_spectra']['taper']['max_percentage']
-    taper_type = config['sn_spectra']['taper']['type']
-    if config['sn_spectra']['type'] == 'pow':
-        func = powspec  # copies the trace if needed
-    elif config['sn_spectra']['type'] == 'amp':
-        func = ampspec  # copies the trace if needed
-    else:
-        # raise TypeError so that if called from within main, the iteration stops
-        raise TypeError("config['sn_spectra']['type'] expects either 'pow' or 'amp'")
-
-    df_, spec_ = func(trace, starttime, endtime,
-                      taper_max_percentage=taper_max_percentage, taper_type=taper_type)
-
-    # if you want to implement your own smoothing, change the lines below before 'return'
-    # and implement your own config variables, if any
-    smoothing_wlen_ratio = config['sn_spectra']['smoothing_wlen_ratio']
-    if smoothing_wlen_ratio > 0:
-        # spec_ = triangsmooth(spec_, winlen_ratio=smoothing_wlen_ratio)
-        f0_ = 0
-        normal_freqs = np.linspace(f0_, f0_ + len(spec_) * df_,
-                               num=len(spec_), endpoint=False)
-
-        # normal_freqs = 0. + np.arange(len(spec_)) * df_
-        spec_ = konno_ohmachi_smoothing(spec_, normal_freqs, bandwidth=80,
-                count=1, enforce_no_matrix=False, max_memory_usage=512,
-                normalize=False)
     return 0, df_, spec_

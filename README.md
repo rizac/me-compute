@@ -4,12 +4,12 @@
 and migration from a private repository, please DO NOT CLONE or USE. In case of info, contact 
 me or open an issue**
 
-Program to compute Magnitude Energy (Me) from downloaded seismic waveforms:
+Program to compute energy Magnitude (Me) from downloaded seismic waveforms:
 
 - It downloads data (waveform segments) and metadata from a FDSN event 
   web service using [stream2segment](https://github.com/rizac/stream2segment) (available
   with this package)
-- It computes the Energy Magnitude (Me) for each downloaded segment, producing a tabular 
+- It computes the energy Magnitude (Me) for each downloaded segment, producing a tabular 
   data (one row per segment) stored in HDF format 
   (exploiting [stream2segment](https://github.com/rizac/stream2segment) processing tools)
 - It produces even-based HTML reports from each HDF table and relative QuakeML: the 
@@ -56,15 +56,15 @@ Install the program: From the directory where you cloned `mecompute`:
 
 ## Usage:
 
-First of all, you should copy the default configuration files and edit them (most
-of the configurations are already setup). By typing `me-compute --help`
-a `config` directory is automatically created in the repository. You can use it
-(for developers: it's ignored by `git`) or copy it elsewhere. 
+First of all, you should configure your routine. In the repository a 
+`config` directory is available with all configuration files already setup: 
+you can use it (for developers: it's ignored by `git`) or copy it elsewhere:
+the only configuration file to be customized is `download.yaml` (all other files
+are already setup with defaults).
 
-Open `download.yaml` and configure how data should be downloaded.
-The only required parameter is `dburl`, the database URL where the waveforms and 
-metadata downloaded from your event and dataselect web service will be stored. 
-Most likely, also `events_url` and `data_url` need to be setup
+Open `download.yaml`, setup `dburl` the database URL (postgres) or file (sqlite) 
+where the waveforms and metadata downloaded from the event (parameter `events_url`)
+and dataselect (`data_url`) FDSN web services, and all other parameters, if needed.
 
 
 ### Download:

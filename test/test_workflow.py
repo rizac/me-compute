@@ -51,11 +51,13 @@ def cleanup(request):
         yaml.dump(ret, _)
     # copy DB (whose address is written in the download config just created)
     # into tmp dir (this db is necessary for test processing):
-    shutil.copy(join(TEST_DATA_DIR, basename(TEST_DB_FILE_PATH)),
-                TEST_DB_FILE_PATH)
+    db_out = join(TEST_DATA_DIR, basename(TEST_DB_FILE_PATH))
+    if isfile(db_out):
+        shutil.copy(db_out, TEST_DB_FILE_PATH)
     # copy the processing HDF (this file is needed to test the report):
     processing_out = join(TEST_DATA_DIR, basename(TEST_PROCESSING_HDF_PATH))
-    shutil.copy(processing_out, TEST_PROCESSING_HDF_PATH)
+    if isfile(processing_out):
+        shutil.copy(processing_out, TEST_PROCESSING_HDF_PATH)
 
     def remove_test_dir():
         # output_dir = join(TEST_TMP_ROOT_DIR, _get_processing_output_dirname(START, END))
