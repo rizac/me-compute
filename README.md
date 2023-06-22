@@ -80,67 +80,62 @@ me-compute download
 (the `-c` option allows to specify a different config file. Type 
 `me-compute download --help` for details)
 
-<!-- ```bash
-[PYPATH]/bin/python [S2SPATH]/stream2segment/cli.py download -c [MEPATH]/s2s_config/download.private.yaml
-``` 
-
-where `[S2SPATH]` the path of the stream2segment repository (where you cloned stream2segment)
-and `[MEPATH]` the path of this project, then:
--->
-
 ### Process
 
+The process routine compute the station magnitude for a temporal selection of
+waveforms saved on the database, producing a HDF file where each row is
+a waveform, and columns are the waveform properties among which 
+"station_energy_magnitude":
+
 ```bash
-[PYPATH]/bin/python [MEPATH]/cli.py process [ROOT]
+me-compute process -s [START] -e [END] -d [download.yaml] [ROOT_DIR]
 ```
+(type `me-compute process --help` for details)
 
-where `[ROOT]` can be any directory of your choice.
+    > Note: Because by default we download only one channel per station, a 
+      waveform always correspond to a station. See 'channel' in download.yaml  
 
-This command processes by default the data downloaded in the previous
-day and creates under `[ROOT]` 
-a *process directory* `mecomputed--[START]--[END]` (where `[START]` 
-and `[END]` are the ISO-formatted time bounds of the previous day) with the 
-following files:
+The produced outoput is a **directory** inside [ROOT_DIR], containing several
+files (log file for inspecting the processing) and the HDF file mentioned above:
 
-
-* me-computed_[START]_[END]
-  * me-computed_[START]_[END].hdf
-  * me-computed_[START]_[END].yaml
-  * me-computed_[START]_[END].log
-
-(If you want to customize the time bounds, provide the relative options
-`-s` and `-e`. Type
-`[PYPATH]/bin/python [MEPATH]/cli.py process --help` for details)
-
+- me-compute_[START]_[END]:
+  - me-compute_[START]_[END].hdf
+  - me-compute_[START]_[END].log
 
 ### Report
 
+This final command sums up the routine chain computing the final energy 
+magnitude at event level: it takes as input one or more HDF file produced with 
+the `process` command, and for each HDF file computes the energy magnitude for 
+each event:
+
+```bash
+me-compute report [HDF_FILE_PAH] ...
 ```
-[PYPATH]/bin/python [MEPATH]/cli.py report [ROOT]
-```
 
-This command will 
-scan each *process directory* under `[ROOT]` and create a `.html` report file next to
-each `.hdf` found.
+The command saves, alongside the HDF file, at least three files:
 
-`[ROOT]` is must just be the same directory
-given in the process routine (see details above). 
+- me-compute_[START]_[END].csv: a CSV file where each row is an event, and 
+  columns are the event properties among which "Me" is the energy magnitude
+- me-compute_[START]_[END].html: an interactive HTML file where the CSV data
+  can be more easily visualized 
+- [event_id].xml: The **event QuakeML file with the energy magnitude field 
+  appended**. The number of xml files depends on the distinct events present in the 
+  input proicessing file (HDF)
 
-The program does not overwrite existing HTML unless the -f option
-is given (type 
-`[PYPATH]/bin/python [MEPATH]/cli.py report --help` for details).
-
-You can pass as `[ROOT]` also a specific HDF file in case you want to regenerate
-a single report.
 
 ### Cron job (schedule downloads+process+report regularly) 
 
-You can setup cron jobs to schedule all above routines. 
-For instance, this is an example file that can be edited via
+Assuming your Python virtualenv is at `[VEN_PATH]`
+With your python virtualenv activated (`source [VENV_PATH]/bin/activate`),
+type `which me-compute`. You should see something like
+`[VENV_PATH]/bin/me-compute`
+
+Then you can set up cron jobs to schedule all above routines.  
+For instance, below an example file that can be edited via
 `crontab -e` (https://linux.die.net/man/1/crontab) and represents
-a currently working example ona remote server:
-(`/home/me/mecompute/mecompute/.env/py3.6.9/bin/python` is the path
-of the Python virtualenv on the server):
+a currently working example on a remote server 
+(you might need to change it according to your needs):
 
 ```bash
 # Edit this file to introduce tasks to be run by cron.
@@ -165,12 +160,12 @@ of the Python virtualenv on the server):
 # For more information see the manual pages of crontab(5) and cron(8)
 # 
 # m h  dom mon dow   command
-5 0 * * * /home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/stream2segment/stream2segment/cli.py download -c /home/me/mecompute/mecompute/s2s_config/download.private.yaml
-0 4 * * * /home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/mecompute/cli.py process /home/me/mecompute/mecomputed/
-30 7 * * * /home/me/mecompute/mecompute/.env/py3.6.9/bin/python /home/me/mecompute/mecompute/cli.py report /home/me/mecompute/mecomputed/
+5 0 * * * [VENV_PATH]/bin/python [VENV_PATH]/bin/me-compute download -c /home/download.private.yaml [ROOT_DIR]
+0 4 * * * [VENV_PATH]/bin/python [VENV_PATH]/bin/me-compute process -d [DOWNLOAD_YAML] [START] [END]
+30 7 * * * [VENV_PATH]/bin/python [VENV_PATH]/bin/me-compute report /home/me/mecompute/mecomputed/
 ```
 
-
+<!--
 ## Misc
 
 
@@ -199,4 +194,4 @@ that, given the `eventws` URL in `download.private.yaml` and an `event_id`,
 returns the two URLs 1) and 2) above, considering the case that any of those URLs
 might not exist, and thus think about fallbacks for the missing anchor in the table
 and the missing icon in the map
-
+-->

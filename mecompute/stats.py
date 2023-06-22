@@ -21,6 +21,7 @@ ROUND = 2  # round to be used in mean and stdev. Set to None for no rounding
 
 class Stats(Enum):
 
+    # legacy code for docstrings (not used anymore. Also note we compute only Me_p now):
     Me = 'Me stats are computed on all waveforms'
     Me_p = 'Me stats computed on the waveforms in the {0:d}-{1:d} ' \
            'percentiles'.format(*pct)
@@ -52,31 +53,22 @@ class Stats(Enum):
 
         return avg_std_count(values, weights, round=ROUND)
 
-    @classmethod
-    def as_help_dict(cls):
-        return {_.name: _.value for _ in cls}
-        # string = []
-        # for _ in cls:
-        #     string.append("<b>%s</b>: %s" % (_.name, _.value))
-        # return "<p>".join(string)
-
 
 def get_report_rows(hdf_path):
     """Yield a series of dicts denoting a row of the report"""
     # see process.py:main for a list of columns:
     dfr: pd.DataFrame = pd.read_hdf(hdf_path)  # noqa
 
-    for ev_id, df_ in dfr.groupby('event_id'):
+    for ev_db_id, df_ in dfr.groupby('event_db_id'):
 
         group_sta = df_.groupby(['network', 'station'])
 
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
         event = {  # we are working in python 3.6.9+, order is preserved
-            'catalog_url': f"{df_['event_catalog_url'].iat[0]}?"
-                           f"eventid={df_['event_catalog_id'].iat[0]}",
+            'url': f"{df_['event_url'].iat[0]}?eventid={df_['event_id'].iat[0]}",
             'magnitude': float(np.round(df_['event_magnitude'].iat[0], 2)),
             'magnitude_type': df_['event_magnitude_type'].iat[0],
-            'Me_mean': np.nan,
+            'Me': np.nan,
             'Me_stddev': np.nan,
             'Me_waveforms_used': 0,
             'latitude': float(np.round(df_['event_latitude'].iat[0], 3)),
@@ -85,10 +77,11 @@ def get_report_rows(hdf_path):
             'time': df_['event_time'].iat[0].isoformat('T'),
             'stations': int(group_sta.ngroups),
             'waveforms': 0,
-            'id': int(ev_id),  # noqa
+            'db_id': int(ev_db_id),  # noqa
         }
 
-        values = np.asarray(df_['station_magnitude_energy'].values)
+        values = np.asarray(df_['station_energy_magnitude'].values)
+
         waveforms_count = np.sum(np.isfinite(values))
         if not waveforms_count:
             continue
@@ -96,8 +89,13 @@ def get_report_rows(hdf_path):
 
         # anomalyscores = np.asarray(df_['signal_amplitude_anomaly_score'].values)
         me, me_std, num_waveforms = Stats.Me_p.compute(values)
-        event['Me_mean'] = float(np.round(me, 2))
-        event['Me_stddev'] = float(np.round(me_std, 3))
+        # print(values)
+        # print([me, me_std, num_waveforms])
+        # print('!')
+        invalid_me = pd.isna(me) or not np.isfinite(me)
+
+        event['Me'] = None if invalid_me else float(np.round(me, 2))
+        event['Me_stddev'] = None if invalid_me else float(np.round(me_std, 3))
         event['Me_waveforms_used'] = int(num_waveforms)
 
         # row.update(dict(zip(['Me_mean', 'Me_stddev', 'Me_waveforms_used'],
@@ -113,12 +111,12 @@ def get_report_rows(hdf_path):
 
         # Stations residuals:
         me_st_mean = Stats.Me_p.compute(values)[0]  # row['Me M']
-        invalid_mean = me_st_mean is None or not np.isfinite(me_st_mean)
         stas = []
         for (net, sta), sta_df in group_sta:
             lat = np.round(sta_df['station_latitude'].iat[0], 3)
             lon = np.round(sta_df['station_longitude'].iat[0], 3)
-            res = np.nan if invalid_mean else sta_df['station_magnitude_energy'].iat[0] - me_st_mean
+            res = np.nan if invalid_me else \
+                sta_df['station_energy_magnitude'].iat[0] - me_st_mean
             dist_deg = np.round(sta_df['event_station_distance_deg'].iat[0], 3)
             stas.append([lat if np.isfinite(lat) else None,
                          lon if np.isfinite(lon) else None,

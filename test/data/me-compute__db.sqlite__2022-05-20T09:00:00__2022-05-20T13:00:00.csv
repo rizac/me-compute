@@ -1,2 +1,2 @@
-catalog_url,magnitude,magnitude_type,Me_mean,Me_stddev,Me_waveforms_used,latitude,longitude,depth_km,time,stations,waveforms,id
+catalog_url,magnitude,magnitude_type,Me,Me_stddev,Me_waveforms_used,latitude,longitude,depth_km,time,stations,waveforms,id
 http://geofon.gfz-potsdam.de/fdsnws/event/1/query?eventid=gfz2022juqz,5.7,Mw,6.23,0.0,1,-29.55,-71.803,28.7,2022-05-20T09:07:49.250000,1,1,2

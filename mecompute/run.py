@@ -7,12 +7,15 @@ import os
 import sys
 import csv
 from datetime import datetime, date, timedelta
+from http.client import HTTPException
 from os.path import join, dirname, isdir, basename, splitext, isfile
+from urllib.error import URLError, HTTPError
 
 import click
 import pandas as pd
 import yaml
 from jinja2 import Template
+from obspy.core.event import QuantityError
 from stream2segment.io.inputvalidation import BadParam
 from stream2segment.process.db.models import WebService
 
@@ -249,56 +252,47 @@ def report(force_overwrite, html_template, input):
     with open(html_template) as _:
         template = Template(_.read())
 
-    desc = Stats.as_help_dict()
     written = 0
+    author_uri = "https://github.com/rizac/me-compute"
     for process_fpath, report_fpath, csv_fpath in input:
         title = splitext(basename(process_fpath))[0]
         try:
-            evts, evts_sations = [], {}
+            sel_event_id = None
+            ev_headers = None
+            csv_evts = []
+            html_evts = {}
             for evt, stations in get_report_rows(process_fpath):
-                evid = evt['id']
-                evts.append(evt)
-                evts_sations[evid] = [evt['latitude'], evt['longitude'],
-                                      stations]
+                csv_evts.append(evt)
+                if ev_headers is None:
+                    ev_headers = list(csv_evts[0].keys())
+                ev_catalog_url = evt['url']
+                ev_catalog_id = ev_catalog_url.split('=')[-1]
+                # write QuakeML:
+                try:
+                    _write_quekeml(dirname(report_fpath), ev_catalog_url, ev_catalog_id,
+                                   evt['Me'], evt['Me_stddev'], evt['Me_waveforms_used'],
+                                   author_uri)
+                except (OSError, HTTPError, HTTPException, URLError) as exc:
+                    print(f'Unable to create QuakeML for "ev_catalog_id": {exc}')
+                html_evts[evt['db_id']] = [[evt[h] for h in ev_headers], stations]
+                if sel_event_id is None:
+                    sel_event_id = evt['db_id']
 
-            if not evts:
-                continue
+            if csv_evts:
+                with open(csv_fpath, 'w', newline='') as _:
+                    writer = csv.DictWriter(_,fieldnames=ev_headers)
+                    writer.writeheader()
+                    for evt in csv_evts:
+                        writer.writerow(evt)
 
-            with open(csv_fpath, 'w', newline='') as _:
-                fieldnames = evts[0].keys()
-                writer = csv.DictWriter(_, fieldnames=fieldnames)
-                writer.writeheader()
-                for evt in evts:
-                    writer.writerow(evt)
+            if sel_event_id is not None:
+                with open(report_fpath, 'w') as _:
+                    _.write(template.render(title=title,
+                                            selected_event_id=sel_event_id,
+                                            event_data=html_evts,
+                                            event_headers=ev_headers))
 
-            with open(report_fpath, 'w') as _:
-                events_select = {}
-                events_table = {}
-                events_url = {}
-                sel_event_id = evts[0]['id']
-                for evt in evts:
-                    ev_id = evt.pop('id')
-                    ev_catalog_url = evt.pop('catalog_url')
-                    ev_catalog_id = ev_catalog_url.split('=')[-1]
-                    # map id to the name displayed on the select:
-                    events_select[ev_id] = ev_catalog_id
-                    events_url[ev_id] = ev_catalog_url
-                    # populate the table:
-                    table = ''
-                    for key, val in evt.items():
-                        if key == 'time':
-                            val = val.replace('T', '<br>')
-                        table += f"<tr><td>{key}</td><td>{val}</td></tr>"
-                    events_table[ev_id] = table
-
-                _.write(template.render(title=title,
-                                        events_url=events_url,
-                                        events_select=events_select,
-                                        events_table=events_table,
-                                        selected_event_id=sel_event_id,
-                                        description=desc,
-                                        event_stations=evts_sations))
-            written += 1
+                written += 1
 
         except Exception as exc:
             print('ERROR: %s while generating %s: %s' % (exc.__class__.__name__,
@@ -309,6 +303,28 @@ def report(force_overwrite, html_template, input):
             # sys.exit(1)
     print("%d reports generated" % written)
     sys.exit(0)
+
+
+def _write_quekeml(dest_dir, event_url, event_id, me, me_u=None, me_stations=None, author=""):
+    from obspy.core.event import read_events, Magnitude, CreationInfo, QuantityError
+    evt = read_events(event_url)
+    if len(evt) == 1:
+        mag = Magnitude()
+        mag.mag = me
+        mag.magnitude_type = 'Me'
+        if not pd.isna(me_u):
+            mag.mag_errors = QuantityError(uncertainty=me_u)
+        if not pd.isna(me_stations):
+            mag.station_count = me_stations
+        mag.creation_info = CreationInfo()
+        mag.creation_info.creation_time = datetime.utcnow()
+        if author:
+            mag.creation_info.author = author
+        evt[0].magnitudes.append(mag)
+        evt.write(join(dest_dir, event_id + '.xml'),
+                  format="QUAKEML")
+        return evt
+    raise URLError('source QuakeML contains more than 1 event')
 
 
 if __name__ == '__main__':

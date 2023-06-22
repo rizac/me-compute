@@ -3,18 +3,19 @@
 <head>
 	<title>{{ title }}</title>
 	<meta charset="UTF-8">
-<!--	<link rel="stylesheet" media="screen" href="https://fontlibrary.org//face/source-sans-pro" type="text/css"/>-->
+
 	<link rel="stylesheet" media="screen" href="https://fontlibrary.org//face/cabin" type="text/css"/>
 
-	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
-   integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
-   crossorigin=""/>
+	<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+		  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+		  crossorigin=""/>
 
-	<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
-   integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
-   crossorigin=""></script>
+	<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+			integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+			crossorigin=""></script>
 
-	<script type='text/javascript' src='https://cdn.jsdelivr.net/gh/rizac/leaflet-poly-marker/polymarker.min.js'></script>
+	<script type='text/javascript'
+			src='https://cdn.jsdelivr.net/gh/rizac/leaflet-poly-marker/polymarker.min.js'></script>
 
 	<!-- Layout related style (necessary): -->
 	<style type="text/css">
@@ -23,10 +24,6 @@
 			margin: 0px;
 			width:100vw;
 			height:100vh;
-		}
-		table td{
-			vertical-align: top;
-			text-align: left;
 		}
 	</style>
 	<!-- appearance style (important, not necessary): -->
@@ -44,38 +41,81 @@
 		}
 	</style>
 
-	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css"
+		  rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC"
+		  crossorigin="anonymous">
 
 </head>
+
 <body class="d-flex flex-row">
-<div class="d-flex flex-column me-2 mr-2">
-	<div class="align-items-baseline text-nowrap">Event: <select>
-		{%- for evt_id, evt_catalog_id in events_select.items() -%}
-			<option onclick="showEvent({{ evt_id }})">{{ evt_catalog_id }}</option>
+<div class="d-flex flex-column me-2">
+	<div class="align-items-baseline text-nowrap">
+		<span>Event:</span>
+		<select class="mx-1">
+		{%- for evt_id, ev_sta in event_data.items() -%}
+			{% set event = ev_sta[0] %}
+			{% set url = event[event_headers.index('url')] %}
+			{% set eventId = url.split('=')[-1] %}
+			<option onclick="showEvent({{ evt_id }})">{{ eventId }}</option>
 		{%- endfor -%}
-	</select>
-		{%- for evt_id, evt_catalog_url in events_url.items() -%}
-			<a style="display:none" id='event-ref-{{ evt_id }}' href="{{ evt_catalog_url }}" target="_blank">source QuakeML</a>
-		{%- endfor -%}
+		</select>
+		<a id='event-url' href="{{ evt_catalog_url }}" target="_blank">source QuakeML</a>
 	</div>
 	<div class='mt-2'>
-		{%- for evt_id, evt_table_content in events_table.items() -%}
-			<table id='event-table-{{ evt_id }}' class='table-bordered' style="display:none">
-				{{ evt_table_content | safe }}
-			</table>
-		{%- endfor -%}
+		<table class='table table-striped'>
+			{% for header in event_headers %}
+			<tr style="{% if header in ['url', 'db_id'] %}display:none{% endif %}">
+				<td>{{ header }}</td><td data-ev-index="{{ loop.index0 }}"></td>
+			</tr>
+			{% endfor %}
+		</table>
 	</div>
 </div>
 <div class="d-flex flex-column" style="flex: 1 0 auto">
 	<div id="map" class='d-flex' style='flex: 1 0 auto;'></div>
 </div>
 
+<div id='map-legend-template' style='display:none'>
+	<table class='table table-sm mb-0'>
+		<tr>
+			<td style='color:seagreen'>&#9711;</td><td>Event</td>
+		</tr>
+		<tr>
+			<td>&#9651;</td>
+			<td>
+				<div>Station(s)</div>
+				<div class="text-muted small">(click on symbol for details)</div>
+				<div>Station color:</div>
+				<div class="d-flex flex-row align-items-baseline">
+					<div>&Delta;Me:</div>
+					<table style="flex: 1 1 0">
+						<tr>
+							<td class='text-end'></td>
+							<td style="background-color: blue"></td>
+							<td style="background: linear-gradient(to right, blue, white 50%, red);padding:.5rem;"></td>
+							<td style="background-color: red"></td>
+						</tr>
+						<tr>
+							<td></td>
+							<td class='text-end'>-1</td>
+							<td class='text-center'>0</td>
+							<td class='text-start'>1</td>
+						</tr>
+					</table>
+				</div>
+				<div class='text-muted small'>&Delta;Me = Me_station - Me</div>
+			</td>
+		</tr>
+	</table>
+</div>
 
 <script type="text/javascript">
 
 // Map related stuff:
 // each element has: [event_lat, event_lon, event_mag, [[sta_lat, sta_lon, sta_code, sta_me, sta_dist_deg], ...]]:
-var event_stations = {{ event_stations | tojson }};
+var event_headers = {{ event_headers | tojson }};
+var event_data = {{ event_data | tojson }};
+
 
 var residualsFullScale = [-1, 1];  // REQUIREMENTS: first element <0, second element >0
 
@@ -118,41 +158,29 @@ var map = L.map('map', {
 var legend = L.control({position: 'bottomleft'});
 legend.onAdd = function (map) {
 	var div = L.DomUtil.create('div', 'leaflet-control-layers p-2 small');
-	div.innerHTML = "<span style='color:seagreen'>&#9711;</span> Event<br>" +
-		"&#9651; Station(s) (click on symbol for details)<br>" + ` Station color: &Delta;Me = Me_station - Me_mean:<br>${residualsFullScale[0]} `;
-	// display the colorbar as a series of spans, first negative scale then positive scale
-	var colorScaleSteps = 4;  // number of spans will be 2 times this (negative+positive) plus the color for 0
-	for (var i=0; i< colorScaleSteps; i++){
-		var val = residualsFullScale[0] + i*Math.abs(residualsFullScale[0])/colorScaleSteps;
-		div.innerHTML += `<span style="display:inline-block;height:.5rem;width:.5rem;border-bottom: 1px solid black;background-color:${getColor(val)}"></span>`;
-	}
-	div.innerHTML += `<span style="display:inline-block;height:.5rem;width:.5rem;border-bottom: 1px solid black;background-color:${getColor(0)}"></span>`;
-	for (var i=0; i< colorScaleSteps; i++){
-		var val = (i+1)*Math.abs(residualsFullScale[1])/colorScaleSteps;
-		div.innerHTML += `<span style="display:inline-block;height:.5rem;width:.5rem;border-bottom: 1px solid black;background-color:${getColor(val)}"></span>`;
-	}
-	div.innerHTML += ` ${residualsFullScale[1]}`;
+	div.innerHTML = document.getElementById('map-legend-template').innerHTML;
 	return div;
 };
 legend.addTo(map);
 
 
-function showEvent(event_id){
-	for (var elm of document.querySelectorAll("[id^='event-table-']")){
-		elm.style.display='none';
-	}
-	document.getElementById('event-table-'+event_id).style.display = '';
-	for (var elm of document.querySelectorAll("[id^='event-ref-']")){
-		elm.style.display='none';
-	}
-	document.getElementById('event-ref-'+event_id).style.display = '';
-	showMap(event_id);
+function showEvent(eventId){
+	var [event, stas] = event_data[eventId];
+	var url = event[event_headers.indexOf('url')];
+	document.getElementById('event-url').setAttribute('href', url);
+	event.forEach((value, i) => {
+		document.querySelector('td[data-ev-index="' + i + '"]').innerHTML = value;
+	});
+	updateMap(eventId);
 }
 
 // function updating the map on event selection
-function showMap(eventId){
+function updateMap(eventId){
 	// get event info (quick and dirt, from table):
-	var [evLat, evLon, stations] = event_stations[eventId];
+	var [event, stas] = event_data[eventId];
+
+	var evLat = event[event_headers.indexOf('latitude')];
+	var evLon = event[event_headers.indexOf('longitude')];
 
 	// clear map:
 	map.eachLayer(function (layer) {
@@ -170,7 +198,6 @@ function showMap(eventId){
 	// repopulate map with new event and stations.
 	// First put everything into a 'markers' Array:
 	var SIZE = 12;
-	var stas = stations;
 	var [minLng, maxLng] = [null, null];
 	var markers = stas.map(function(element){
 		var latLng = [element[0], adjustLng(element[1])];
@@ -201,7 +228,7 @@ function showMap(eventId){
 		return L.polyMarker(latLng, options).bindPopup(popupContent);
 	});
 
-	// Add event (beach ball icon):
+	// Add event (normal circle):
 	var evtLatLng = L.latLng(evLat, evLon);
 	markers.push(L.circleMarker(evtLatLng, {
 		color: 'seagreen',
@@ -210,9 +237,6 @@ function showMap(eventId){
 		fillOpacity: 1,
 		weight: 1,  // border width
 	}));
-
-	// Add event ("normal" circle, uncomment for debugging purposes):
-	// markers.push(L.circleMarker([evLat, evLon], {weight:1, color:'black', fillColor:'#555', fillOpacity: 1, radius: 7}));
 
 	// Create featuresGroup and add all markers we created to it. This way, it is easier
 	// to clear the map by removing the group only (see the snippet above where we clear the map)
