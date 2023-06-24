@@ -15,11 +15,13 @@ import pandas as pd
 import yaml
 from jinja2 import Template
 from stream2segment.io.inputvalidation import BadParam
+import logging
 
 from mecompute.stats import get_report_rows
 from stream2segment.process import imap
 from mecompute.process import main as main_function
 
+logger = logging.getLogger('me-compute')
 
 _CONFIG_DIR = join(dirname(__file__), 'base-config')
 PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'process.yaml')
@@ -74,18 +76,25 @@ assert isfile(REPORT_TEMPLATE_PATH)
 @click.argument('output_dir', required=True)
 def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template,
         output_dir):
+    # create output directory within destdir and assign new name:
+    dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
+    file_handler = logging.FileHandler(filename='energy-magnitude.log')
+    file_handler.setLevel(logging.INFO)
+    logger.addHandler(file_handler)
+
     # if output_dir is None and not all(_ is None for _ )
     try:
-        process(d_config, start, end, time_window, output_dir,
+        process(d_config, start, end, time_window, dest_dir,
                 force_overwrite=force_overwrite, p_config=p_config,
                 html_template=h_template)
     except MeRoutineError as merr:
-        print('Error: ' + str(merr), file=sys.stderr)
+        logger.error(str(merr))
         sys.exit(1)
     except Exception as exc:  # noqa
-        import traceback
-        traceback.print_exception(exc, file=sys.stderr)
+        logger.exception(exc)
         sys.exit(1)
+    finally:
+        file_handler.close()
     sys.exit(0)
 
 
@@ -93,7 +102,7 @@ class MeRoutineError(Exception):
     pass
 
 
-def process(dconfig, start, end, duration, output_dir,
+def process(dconfig, start, end, duration, dest_dir,
             force_overwrite=False,
             p_config=None, html_template=None):
     """
@@ -126,15 +135,15 @@ def process(dconfig, start, end, duration, output_dir,
     # start = sess.query(sqlmin(Event.time)).scalar()  # (raises if multiple results)
     # close_session(sess)
 
-    # create output directory within destdir and assign new name:
-    destdir = output_dir.replace("%S%", start).replace("%E%", end)
-
     base_name = 'energy-magnitude'
 
     # set outfile
-    station_me_file = join(destdir, 'station-' + base_name + '.hdf')
+    station_me_file = join(dest_dir, 'station-' + base_name + '.hdf')
 
     if not isfile(station_me_file) or force_overwrite:
+
+        logger.info(f'Computing station energy magnitudes and saving data to '
+                    f'{station_me_file}. See relative log file for details')
 
         try:
             with open(dconfig) as _:
@@ -144,20 +153,27 @@ def process(dconfig, start, end, duration, output_dir,
                                  f'Check that file exists and is a well-formed '
                                  f'YAML')
 
-        if not isdir(destdir):
-            os.makedirs(destdir)
-        if not isdir(destdir):
-            raise MeRoutineError(f'Not a directory: {destdir}')
+        if not isdir(dest_dir):
+            os.makedirs(dest_dir)
+        if not isdir(dest_dir):
+            raise MeRoutineError(f'Not a directory: {dest_dir}')
 
         segments_selection = {
             'event.time': '(%s, %s]' % (start, end),
             'has_valid_data': 'true',
             'maxgap_numsamples': '(-0.5, 0.5)'
         }
+        try:
+            station_me_df = _compute_station_me(station_me_file, dburl, segments_selection,
+                                                p_config)
+            # all next files might now be outdated so we need to force updating them:
+            force_overwrite = True
+        except Exception as exc:
+            raise MeRoutineError('Error while computing station energy magnitude : '
+                                 + str(exc))
 
-        station_me_df = _compute_station_me(station_me_file, dburl, segments_selection,
-                                            p_config)
     else:
+        logger.info(f'Fetching station energy magnitudes from {station_me_file}')
         station_me_df = pd.read_hdf(station_me_file)
 
     if html_template is None:
@@ -166,52 +182,49 @@ def process(dconfig, start, end, duration, output_dir,
     with open(html_template) as _:
         template = Template(_.read())
 
-    csv_fpath = abspath(join(destdir, base_name + '.csv'))
-    html_fpath = abspath(join(destdir, base_name + '.html'))
+    csv_fpath = abspath(join(dest_dir, base_name + '.csv'))
+    html_fpath = abspath(join(dest_dir, base_name + '.html'))
 
     author_uri = "https://github.com/rizac/me-compute"
     title = splitext(basename(html_fpath))[0]
-    try:
-        sel_event_id = None
-        ev_headers = None
-        csv_evts = []
-        html_evts = {}
-        for evt, stations in get_report_rows(station_me_df):
-            csv_evts.append(evt)
-            if ev_headers is None:
-                ev_headers = list(csv_evts[0].keys())
-            ev_catalog_url = evt['url']
-            ev_catalog_id = ev_catalog_url.split('=')[-1]
-            # write QuakeML:
-            try:
-                _write_quekeml(destdir, ev_catalog_url, ev_catalog_id,
-                               evt['Me'], evt['Me_stddev'], evt['Me_waveforms_used'],
-                               author_uri, force_overwrite)
-            except (OSError, HTTPError, HTTPException, URLError) as exc:
-                print(f'Unable to create QuakeML for "ev_catalog_id": {exc}',
-                      file=sys.stderr)
 
-            html_evts[evt['db_id']] = [[evt[h] for h in ev_headers], stations]
-            if sel_event_id is None:
-                sel_event_id = evt['db_id']
+    sel_event_id = None
+    ev_headers = None
+    csv_evts = []
+    html_evts = {}
+    logger.info(f'Computing events energy magnitudes')
+    for evt, stations in get_report_rows(station_me_df):
+        csv_evts.append(evt)
+        if ev_headers is None:
+            ev_headers = list(csv_evts[0].keys())
+        ev_catalog_url = evt['url']
+        ev_catalog_id = ev_catalog_url.split('eventid=')[-1]
+        # write QuakeML:
+        try:
+            _write_quekeml(dest_dir, ev_catalog_url, ev_catalog_id,
+                           evt['Me'], evt['Me_stddev'], evt['Me_waveforms_used'],
+                           author_uri, force_overwrite)
+        except (OSError, HTTPError, HTTPException, URLError) as exc:
+            logger.warning(f'Unable to create QuakeML for "ev_catalog_id": {exc}')
 
-        if csv_evts and (not isfile(csv_fpath) or force_overwrite):
-            with open(csv_fpath, 'w', newline='') as _:
-                writer = csv.DictWriter(_,fieldnames=ev_headers)
-                writer.writeheader()
-                for evt in csv_evts:
-                    writer.writerow(evt)
+        html_evts[evt['db_id']] = [[evt[h] for h in ev_headers], stations]
+        if sel_event_id is None:
+            sel_event_id = evt['db_id']
 
-        if sel_event_id is not None and (not isfile(html_fpath) or force_overwrite):
-            with open(html_fpath, 'w') as _:
-                _.write(template.render(title=title,
-                                        selected_event_id=sel_event_id,
-                                        event_data=html_evts,
-                                        event_headers=ev_headers))
+    if csv_evts and (not isfile(csv_fpath) or force_overwrite):
+        logger.info(f'Saving event energy magnitudes to: {csv_fpath}')
+        with open(csv_fpath, 'w', newline='') as _:
+            writer = csv.DictWriter(_,fieldnames=ev_headers)
+            writer.writeheader()
+            for evt in csv_evts:
+                writer.writerow(evt)
 
-    except Exception as exc:
-        raise MeRoutineError(f'Unexpected Exception {exc.__class__.__name__}: ' 
-                             f'{str(exc)}')
+    if sel_event_id is not None and (not isfile(html_fpath) or force_overwrite):
+        logger.info(f'Saving visual report of event energy magnitudes to: '
+                    f'{html_fpath}')
+        with open(html_fpath, 'w') as _:
+            _.write(template.render(title=title, selected_event_id=sel_event_id,
+                                    event_data=html_evts, event_headers=ev_headers))
 
 
 def _get_timebounds(start=None, end=None, duration=1):
@@ -262,35 +275,32 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
     # option to write str columns to dataframe:
     min_itemsize = {}
     processed_waveforms = []
-    try:
-        for res_dict in imap(main_function,
-                             segments_selection=segments_selection,
-                             dburl=dburl,
-                             config=p_config, logfile=logfile,
-                             multi_process=True, chunksize=None):
-            for col in categorical_columns:
-                value = res_dict[col]
-                if value not in categorical_columns[col]:
-                    categorical_columns[col][value] = len(categorical_columns[col])
-                res_dict[col] = categorical_columns[col][value]
-            processed_waveforms.append(res_dict)
 
-        dataframe = pd.DataFrame(processed_waveforms)
-        # handle str columns, convert them to str or categorical:
+    for res_dict in imap(main_function,
+                         segments_selection=segments_selection,
+                         dburl=dburl,
+                         config=p_config, logfile=logfile,
+                         multi_process=True, chunksize=None):
         for col in categorical_columns:
-            dtype = 'str' if len(categorical_columns[col]) > len(dataframe) / 2 \
-                else 'category'
-            mapping = {v: k for k, v in categorical_columns[col].items()}
-            dataframe[col] = dataframe[col].map(mapping).astype(dtype)
-            if dtype == 'str':
-                min_itemsize[col] = max(len(v) for v in mapping.values())
+            value = res_dict[col]
+            if value not in categorical_columns[col]:
+                categorical_columns[col][value] = len(categorical_columns[col])
+            res_dict[col] = categorical_columns[col][value]
+        processed_waveforms.append(res_dict)
 
-        dataframe.to_hdf(outfile, format='table', key='me_computed_waveforms_table',
-                         min_itemsize=min_itemsize or None)
-        return outfile
+    dataframe = pd.DataFrame(processed_waveforms)
+    # handle str columns, convert them to str or categorical:
+    for col in categorical_columns:
+        dtype = 'str' if len(categorical_columns[col]) > len(dataframe) / 2 \
+            else 'category'
+        mapping = {v: k for k, v in categorical_columns[col].items()}
+        dataframe[col] = dataframe[col].map(mapping).astype(dtype)
+        if dtype == 'str':
+            min_itemsize[col] = max(len(v) for v in mapping.values())
 
-    except BadParam as bpar:
-        raise MeRoutineError(str(bpar))
+    dataframe.to_hdf(outfile, format='table', key='me_computed_waveforms_table',
+                     min_itemsize=min_itemsize or None)
+    return outfile
 
 
 def _write_quekeml(dest_dir, event_url, event_id, me, me_u=None, me_stations=None,
