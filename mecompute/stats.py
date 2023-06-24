@@ -54,10 +54,12 @@ class Stats(Enum):
         return avg_std_count(values, weights, round=ROUND)
 
 
-def get_report_rows(hdf_path):
+def get_report_rows(hdf_path_or_df):
     """Yield a series of dicts denoting a row of the report"""
     # see process.py:main for a list of columns:
-    dfr: pd.DataFrame = pd.read_hdf(hdf_path)  # noqa
+    dfr = hdf_path_or_df
+    if not isinstance(hdf_path_or_df, pd.DataFrame):
+        dfr: pd.DataFrame = pd.read_hdf(hdf_path)  # noqa
 
     for ev_db_id, df_ in dfr.groupby('event_db_id'):
 

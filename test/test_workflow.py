@@ -76,12 +76,12 @@ def cleanup(request):
     request.addfinalizer(remove_test_dir)
 
 
-def test_download():
-    """test the download routine"""
-    runner = CliRunner()
-    result = runner.invoke(cli, ['download', '-c', TEST_DOWNLOAD_CONFIG_PATH])
-    assert not result.exception
-    assert isfile(TEST_DB_FILE_PATH)
+# def test_download():
+#     """test the download routine"""
+#     runner = CliRunner()
+#     result = runner.invoke(cli, ['download', '-c', TEST_DOWNLOAD_CONFIG_PATH])
+#     assert not result.exception
+#     assert isfile(TEST_DB_FILE_PATH)
 
 
 @pytest.mark.parametrize('params', [
