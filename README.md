@@ -49,15 +49,12 @@ Install the program: From the directory where you cloned `mecompute`:
 
 ## Usage:
 
-First of all, you should configure your routine. In the repository a 
-`config` directory is available with all configuration files already setup: 
-you can use it (for developers: it's ignored by `git`) or copy it elsewhere:
-the only configuration file to be customized is `download.yaml` (all other files
-are already setup with defaults).
-
-Open `download.yaml`, setup `dburl` the database URL (postgres) or file (sqlite) 
-where the waveforms and metadata downloaded from the event (parameter `events_url`)
-and dataselect (`data_url`) FDSN web services, and all other parameters, if needed.
+First of all, you should configure your download routine. In the repository a 
+`config` directory (git-ignored) is available, with all configuration files already 
+setup: you can use the directory or copy it elsewhere: it contains several configuration
+files, already filled with default values and that should be modified by experienced 
+users: the only configuration file that need to be customized is `download.yaml` 
+(see below)
 
 
 ### Events and data Download:
@@ -159,7 +156,7 @@ specified directory with start and end time encoded in the directory name:
 
 ### Misc
 
-#### Generating tests
+#### Run tests and generate test data
 
 Run: 
 ```commandline
@@ -168,5 +165,5 @@ pytest ./me-compute/test
 
 Note that there is only one test routine generating files in a `test/tmp` directory
 (git-ignored). The directory is **not** deleted automatically in order to leave 
-developers the ability to perform a further visual test on the generated output 
+developers the ability to perform an additional visual test on the generated output 
 (e.g. HTML report)

@@ -35,8 +35,8 @@ def test_process(params, capsys):
     # get modification times to check we overwrote those files
     # (if files do not exist, set yesterday as modification time):
     m_times = {
-        f: datetime.utcnow() - timedelta(days=1) if not isfile(f) else
-        os.stat(f).st_mtime for f in [s_hdf, s_log, csv, log, html, xml]
+        f: -1. if not isfile(f) else os.stat(f).st_mtime
+        for f in [s_hdf, s_log, csv, log, html, xml]
     }
 
     result = runner.invoke(cli, ['-f',
