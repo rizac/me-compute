@@ -8,7 +8,7 @@ The download is performed via [stream2segment](https://github.com/rizac/stream2s
 the database has to be setup beforehand).
 
 Once downloaded, events and their data can be fetched to compute each event Me (Me = mean 
-of all stations energy magnitudes in the 5-95 percentiles). The computed Me are available
+of all stations energy magnitudes in the 5th-95th percentiles). The computed Me are available
 in several formats: CSV, HDF, HTML and QuakeMl (see Usage below for details)
 
 
@@ -26,13 +26,13 @@ pip install --upgrade pip setuptools
 Install the program: From the directory where you cloned `mecompute`: 
 
 1. [Optional] If you want to be safer and install **exactly** the dependencies 
-   with the tested versions, and your virtualenv is empty and not supposed to have other 
-   packages installed (no possible version conflicts), 
+   with the tested versions, and you are sure not to have conflicts with existing dependencies
+   (e.g., your virtualenv is empty and not supposed to have other 
+   packages installed), 
    then run beforehand: `pip install -r ./requirements.txt` or 
-   `pip install -r ./requirements.dev.txt` (if you want to run test, e.g. you 
-   are project developer who needs to run tests)
+   `pip install -r ./requirements.dev.txt` (the latter if you want to run tests)
  
-2. Install the program:
+3. Install the program:
    ```bash
    pip install .
    ```
@@ -49,11 +49,10 @@ Install the program: From the directory where you cloned `mecompute`:
 
 ## Usage:
 
-First of all, you should configure your download routine. In the repository a 
-`config` directory (git-ignored) is available, with all configuration files already 
-setup: you can use the directory or copy it elsewhere: it contains several configuration
-files, already filled with default values and that should be modified by experienced 
-users: the only configuration file that need to be customized is `download.yaml` 
+First of all, you should configure your download routine. The repository contains 
+a `config` directory (git-ignored), with several configuration files that you can copy and modify.
+Most of them are for experienced users and are already filled with default values: 
+the only configuration file that need to be customized is `download.yaml` 
 (see below)
 
 
@@ -64,20 +63,21 @@ event and dataselect web services into the database (Sqlite or Postgres using
 [stream2segment](https://github.com/rizac/stream2segment). With Postgres,
 the db has to be setup beforehand) . Open `download.yaml`
 (or a copy of it) and cconfigure `dburl` (ideally, you might want to setup also
-`start`, `end`, `events_url` and `data_url`):
+`start`, `end`, `events_url` and `data_url`). Then run stream2segment with the `s2s`
+command:
 
 ```commandline
-s2s download -d download.yaml
+s2s download -c download.yaml
 ```
 
 
 ### Me computation
 
-To compute the energy magnitude of events within a certain time range from the 
-data downloaded in the database
+To compute the energy magnitude of the events saved on the db, you run the
+`me-compute` command with customized options, e.g.:
 
 ```bash
-me-compute -s [START] -e [END] -d download.yaml [OUTPUT_DIR]
+me-compute -s [START] -e [END] -d download.yaml ... [OUTPUT_DIR]
 ```
 
 (Type `me-compute --help` for more details)
@@ -85,7 +85,8 @@ me-compute -s [START] -e [END] -d download.yaml [OUTPUT_DIR]
 OUTPUT_DIR is the destination root directory. You can use the special characters %S%
 and %E% that will be replaced with the start and end time in ISO format, computed
 from the given parameters. The output directory and its parents will be created if
-they do not exist
+they do not exist. START and END are the start and end time of the events to consdier,
+in ISO format (e.g. "2016-03-31")
 
 In the output directory, the following files will be saved:
 
