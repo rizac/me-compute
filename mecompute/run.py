@@ -7,15 +7,13 @@ import sys
 import csv
 from datetime import datetime, date, timedelta
 from http.client import HTTPException
-from os.path import join, dirname, isdir, basename, splitext, isfile, abspath, isabs, \
-    relpath
+from os.path import join, dirname, isdir, basename, splitext, isfile, abspath, isabs
 from urllib.error import URLError, HTTPError
 
 import click
 import pandas as pd
 import yaml
 from jinja2 import Template
-from stream2segment.io.inputvalidation import BadParam
 import logging
 
 from mecompute.stats import get_report_rows
@@ -119,32 +117,14 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
 
         process -s 2016-01-02 -t 2 OUT_DIR
     """
-    # create output directory within destdir and assign new name:
     start, end = _get_timebounds(start, end, time_window)
     dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
-    file_handler = logging.FileHandler(mode='w+',
-                                       filename=join(dest_dir,
-                                                     'energy-magnitude.log'))
-    file_handler.setLevel(logging.INFO)
-    logger.addHandler(file_handler)
-
-    try:
-        process(d_config, start, end, dest_dir,
-                force_overwrite=force_overwrite, p_config=p_config,
-                html_template=h_template)
-    except MeRoutineError as merr:
-        logger.error(str(merr))
-        sys.exit(1)
-    except Exception as exc:  # noqa
-        logger.exception(exc)
-        sys.exit(1)
-    finally:
-        file_handler.close()
-    sys.exit(0)
-
-
-class MeRoutineError(Exception):
-    pass
+    ret = process(d_config, start, end, dest_dir,
+                  force_overwrite=force_overwrite, p_config=p_config,
+                  html_template=h_template)
+    if ret:
+        sys.exit(0)
+    sys.exit(1)
 
 
 def process(dconfig, start, end, dest_dir,
@@ -152,14 +132,25 @@ def process(dconfig, start, end, dest_dir,
             p_config=None, html_template=None):
     """process downloaded events computing their energy magnitude (Me)"""
 
-
     # # in case we want to query the db (e.g., min event, legacy code not used anymore):
     # from stream2segment.process import get_session
     # sess = get_session(dburl)
     # start = sess.query(sqlmin(Event.time)).scalar()  # (raises if multiple results)
     # close_session(sess)
 
+    if not isdir(dest_dir):
+        os.makedirs(dest_dir)
+    if not isdir(dest_dir):
+        raise OSError(f'Not a directory: {dest_dir}')
+
     base_name = 'energy-magnitude'
+
+    # create output directory within destdir and assign new name:
+
+    logger.setLevel(logging.INFO)
+    file_handler = logging.FileHandler(mode='w+',
+                                       filename=join(dest_dir, base_name + '.log'))
+    logger.addHandler(file_handler)
 
     # set outfile
     station_me_file = join(dest_dir, 'station-' + base_name + '.hdf')
@@ -172,20 +163,17 @@ def process(dconfig, start, end, dest_dir,
         try:
             with open(dconfig) as _:
                 dburl = yaml.safe_load(_)['dburl']
+                # make non abs-path relative to the download yaml file:
                 sqlite = "sqlite:///"
                 if dburl.lower().startswith(sqlite):
                     dburl_ = dburl[len(sqlite):]
                     if not isabs(dburl_):
                         dburl = "sqlite:///" + abspath(join(dirname(dconfig), dburl_))
         except (FileNotFoundError, yaml.YAMLError, KeyError) as exc:
-            raise MeRoutineError(f'Unable to read "dburl" from {dconfig}. '
-                                 f'Check that file exists and is a well-formed '
-                                 f'YAML')
-
-        if not isdir(dest_dir):
-            os.makedirs(dest_dir)
-        if not isdir(dest_dir):
-            raise MeRoutineError(f'Not a directory: {dest_dir}')
+            logger.error(f'Unable to read "dburl" from {dconfig}. '
+                         f'Check that file exists and is a well-formed '
+                         f'YAML')
+            return False
 
         segments_selection = {
             'event.time': '(%s, %s]' % (start, end),
@@ -198,8 +186,8 @@ def process(dconfig, start, end, dest_dir,
             # all next files might now be outdated so we need to force updating them:
             force_overwrite = True
         except Exception as exc:
-            raise MeRoutineError('Error while computing station energy magnitude : '
-                                 + str(exc))
+            logger.error('Error while computing station energy magnitude : ' + str(exc))
+            return False
 
     else:
         logger.info(f'Fetching station energy magnitudes from {station_me_file}')
@@ -255,6 +243,7 @@ def process(dconfig, start, end, dest_dir,
         with open(html_fpath, 'w') as _:
             _.write(template.render(title=title, selected_event_id=sel_event_id,
                                     event_data=html_evts, event_headers=ev_headers))
+    return True
 
 
 def _get_timebounds(start=None, end=None, duration=1):
