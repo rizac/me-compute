@@ -1,6 +1,7 @@
 import os
-from datetime import timedelta, datetime
-from os.path import dirname, join, abspath, isdir, isfile, splitext, basename
+from datetime import datetime, timedelta
+
+from os.path import dirname, join, abspath, isfile
 
 import pandas as pd
 import pytest
@@ -8,6 +9,7 @@ from click.testing import CliRunner
 
 from mecompute.run import cli
 from mecompute.stats import ParabolicScore2Weight, LinearScore2Weight
+from unittest.mock import patch
 
 TEST_DATA_DIR = abspath(join(dirname(__file__), 'data'))
 TEST_DOWNLOAD_CONFIG_PATH = join(TEST_DATA_DIR, 'download.yaml')
@@ -17,9 +19,23 @@ TEST_DB_FILE_PATH = join(TEST_DATA_DIR, 'db.sqlite')
 TEST_TMP_ROOT_DIR = abspath(join(TEST_DATA_DIR, 'tmp'))
 
 
+@patch('mecompute.run.process')
+def test_proc_ess_params(mock_process, capsys):
+    runner = CliRunner()
+    now = datetime.utcnow().replace(microsecond=0,hour=0, minute=0, second=0)
+    days = 365
+    result = runner.invoke(cli, ['-f',
+                                 '-d', TEST_DOWNLOAD_CONFIG_PATH, '-t', str(days),
+                                 TEST_TMP_ROOT_DIR])
+    assert mock_process.called
+    start, end = mock_process.call_args[0][1], mock_process.call_args[0][2]
+    assert now == datetime.fromisoformat(end)
+    assert datetime.fromisoformat(end) - datetime.fromisoformat(start) == \
+           timedelta(days=days)
+
+
 @pytest.mark.parametrize('params', [
     ['-s', '2022-05-20T09:00:00', '-e', '2022-05-20T13:00:00'],  # process all db events
-    ['-t', 100*365]  # huge time span in the past in order to process all db events
 ])
 def test_process(params, capsys):
     """test the processing routine"""

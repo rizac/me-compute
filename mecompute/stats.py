@@ -91,10 +91,8 @@ def get_report_rows(hdf_path_or_df):
 
         # anomalyscores = np.asarray(df_['signal_amplitude_anomaly_score'].values)
         me, me_std, num_waveforms = Stats.Me_p.compute(values)
-        # print(values)
-        # print([me, me_std, num_waveforms])
-        # print('!')
-        invalid_me = pd.isna(me) or not np.isfinite(me)
+        with pd.option_context('mode.use_inf_as_na', True):
+            invalid_me = pd.isna(me)
 
         event['Me'] = None if invalid_me else float(np.round(me, 2))
         event['Me_stddev'] = None if invalid_me else float(np.round(me_std, 3))

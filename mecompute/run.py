@@ -223,7 +223,7 @@ def process(dconfig, start, end, dest_dir,
                            evt['Me'], evt['Me_stddev'], evt['Me_waveforms_used'],
                            author_uri, force_overwrite)
         except (OSError, HTTPError, HTTPException, URLError) as exc:
-            logger.warning(f'Unable to create QuakeML for "ev_catalog_id": {exc}')
+            logger.warning(f'Unable to create QuakeML for {ev_catalog_id}: {exc}')
 
         html_evts[evt['db_id']] = [[evt[h] for h in ev_headers], stations]
         if sel_event_id is None:
@@ -324,6 +324,10 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
 
 def _write_quekeml(dest_file, event_url, me, me_u=None, me_stations=None,
                    author="", force_overwrite=False):
+    with pd.option_context('mode.use_inf_as_na', True):
+        if pd.isna(me):
+            raise URLError('Me is N/A (nan, +-inf, None)')
+
     if isfile(dest_file) and not force_overwrite:
         return dest_file
 

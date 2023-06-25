@@ -70,6 +70,11 @@
 			{% endfor %}
 		</table>
 	</div>
+	<div style="flex: 1 1 0"></div>
+	<div class="text-muted small">
+		Note: an empty Me means that the value could not be computed<br>or
+		resulted to be invalid (NaN, null or +-inf).
+	</div>
 </div>
 <div class="d-flex flex-column" style="flex: 1 0 auto">
 	<div id="map" class='d-flex' style='flex: 1 0 auto;'></div>
@@ -87,16 +92,14 @@
 				<div class="text-muted small">(click on symbol for details)</div>
 				<div>Station color:</div>
 				<div class="d-flex flex-row align-items-baseline">
-					<div>&Delta;Me:</div>
-					<table style="flex: 1 1 0">
+					<div class='me-2'>&Delta;Me:</div>
+					<table style='flex: 1 1 0'>
 						<tr>
-							<td class='text-end'></td>
-							<td style="background-color: blue"></td>
+							<td style="width:1rem;background-color: blue"></td>
 							<td style="background: linear-gradient(to right, blue, white 50%, red);padding:.5rem;"></td>
-							<td style="background-color: red"></td>
+							<td style="width:1rem;background-color: red"></td>
 						</tr>
 						<tr>
-							<td></td>
 							<td class='text-end'>-1</td>
 							<td class='text-center'>0</td>
 							<td class='text-start'>1</td>
