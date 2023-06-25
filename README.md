@@ -7,7 +7,7 @@ The download is performed via [stream2segment](https://github.com/rizac/stream2s
 (included in this package) into a custom SQLite or Postgres database (in this case, 
 the database has to be setup beforehand).
 
-Once downloaded, events within a customizable time window and their data can be 
+Once downloaded, events and data within a customizable time window can be 
 fetched from the database in order to compute each event Me (Me = mean 
 of all stations energy magnitudes in the 5th-95th percentiles). The computed Me are available
 in several formats: CSV, HDF, HTML and QuakeMl (see Usage below for details)
@@ -27,13 +27,13 @@ pip install --upgrade pip setuptools
 Install the program: From the directory where you cloned `mecompute`: 
 
 1. [Optional] If you want to be safer and install **exactly** the dependencies 
-   with the tested versions, and you are sure not to have conflicts with existing dependencies
-   (e.g., your virtualenv is empty and not supposed to have other 
-   packages installed), 
-   then run beforehand: `pip install -r ./requirements.txt` or 
+   with the tested versions, and you don't have conflicts with 
+   existing dependencies (e.g., your virtualenv is empty and not supposed to 
+   have other packages installed), 
+   then you can run: `pip install -r ./requirements.txt` or 
    `pip install -r ./requirements.dev.txt` (the latter if you want to run tests)
  
-3. Install the program:
+2. Install the program:
    ```bash
    pip install .
    ```
@@ -43,7 +43,7 @@ Install the program: From the directory where you cloned `mecompute`:
    ```
    (add the `-e` option if you want to install in [editable mode](https://stackoverflow.com/a/35064498))
    **The installation creates a new terminal command `me-compute` within your virtualenv,
-   that you can inspect via: 
+   that you can inspect via**: 
    ```bash
    me-compute --help
    ```
@@ -53,17 +53,17 @@ Install the program: From the directory where you cloned `mecompute`:
 First of all, you should configure your download routine. The repository contains 
 a `config` directory (git-ignored), with several configuration files that you can copy and modify.
 Most of them are for experienced users and are already filled with default values: 
-the only configuration file that need to be customized is `download.yaml` 
-(see below)
+the only routine that has to be customized is the download routine
+(file `download.yaml`, see below)
 
 
 ### Events and data Download:
 
 The download routine downloads data and metadata from the configured FDSN
-event and dataselect web services into the database (Sqlite or Postgres using
+event and dataselect web services into a custom database (Sqlite or Postgres using
 [stream2segment](https://github.com/rizac/stream2segment). With Postgres,
 the db has to be setup beforehand) . Open `download.yaml`
-(or a copy of it) and cconfigure `dburl` (ideally, you might want to setup also
+(or a copy of it) and configure `dburl` (ideally, you might want to setup also
 `start`, `end`, `events_url` and `data_url`). Then run stream2segment with the `s2s`
 command:
 
@@ -83,11 +83,11 @@ me-compute -s [START] -e [END] -d download.yaml ... [OUTPUT_DIR]
 
 (Type `me-compute --help` for more details)
 
-OUTPUT_DIR is the destination root directory. You can use the special characters %S%
-and %E% that will be replaced with the start and end time in ISO format, computed
-from the given parameters. The output directory and its parents will be created if
-they do not exist. START and END are the start and end time of the events to consdier,
-in ISO format (e.g. "2016-03-31")
+OUTPUT_DIR is the destination directory. You can use the special characters 
+`%S%` and `%E%` that will be replaced with the start and end time in ISO format, 
+computed from the given parameters. The output directory and its parents will be 
+created if they do not exist. START and END are the start and end time of the 
+events to consider, in ISO format (e.g. "2016-03-31")
 
 In the output directory, the following files will be saved:
 
@@ -95,17 +95,17 @@ In the output directory, the following files will be saved:
   station(^) and each column the station computed data and metadata,
   including the station energy magnitude.
   
-  (^) Note: technically speaking, a single HDF row represents a waveform. However, 
-  there is no distinction because for each station a single channel (the vertical 
-  component `BHZ`) is downloaded (just consider this if you increase the station 
-  channels to download in `download.yaml`)
+  (^) Note: technically speaking, a single HDF row represents a waveform. 
+  However, there is no distinction because for each station a single channel 
+  (the vertical component `BHZ`) is downloaded (just consider this if you 
+  increase the station channels to download in `download.yaml`)
   
 
-- **energy-magnitude.csv** A tabular file where each row represents a seismic event, 
-  aggregating the result of the previous file into the final event energy magnitude. 
-  The event Me is the mean of all station energy magnitudes within the 5-95 percentiles.
-  Empty or non-numeric Me values indicate that the energy magnitude could not be 
-  computed or resulted in invalid values (NaN, null, +-inf)
+- **energy-magnitude.csv** A tabular file where each row represents a seismic 
+  event, aggregating the result of the previous file into the final event energy 
+  magnitude. The event Me is the mean of all station energy magnitudes within 
+  the 5-95 percentiles. Empty or non-numeric Me values indicate that the energy 
+  magnitude could not be computed or resulted in invalid values (NaN, null, +-inf)
 
 
 - **energy-magnitude.html** A report that can be opened in the user browser to
@@ -113,8 +113,8 @@ In the output directory, the following files will be saved:
 
 
 - **[eventid1].xml, ..., [eventid1].xml** All processed events saved in QuakeMl
-  format, updated with the information of their energy magnitude. Only events with
-  valid Me will be saved
+  format, updated with the information of their energy magnitude. Only events 
+  with valid Me will be saved
 
 
 - **energy-magnitude.log** the log file where the info, errors and warnings
@@ -123,8 +123,8 @@ In the output directory, the following files will be saved:
   detailed log file (see below)
 
 
-- **station-energy-magnitude.log** the log file where the info, errors and warnings
-  of the station energy magnitude computation have been stored
+- **station-energy-magnitude.log** the log file where the info, errors and 
+  warnings of the station energy magnitude computation have been stored
 
 
 ### Cron job (schedule downloads+ Me computation)

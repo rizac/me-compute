@@ -77,30 +77,48 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
     Computes the energy magnitude (Me) from a selection of events and waveforms
     previously downloaded with stream2segment and saved on a SQLite or Postgres database.
 
-    OUTPUT_DIR: the destination root directory. You can use the special characters %S%
-    and %E% that will be replaced with the start and end time in ISO format, computed
-    from the given parameters. The output directory and its parents will be created if
-    they do not exist
+    OUTPUT_DIR is the destination directory. You can use the special characters
+    `%S%` and `%E%` that will be replaced with the start and end time in ISO format,
+    computed from the given parameters. The output directory and its parents will be
+    created if they do not exist. START and END are the start and end time of the
+    events to consider, in ISO format (e.g. "2016-03-31")
 
     In the output directory, the following files will be saved:
-        - station-energy-magnitude.hdf A tabular files where each row represents a
-          station/waveform and each column the station computed data and metadata,
-          including the station energy magnitude.
-          Note that the program assumes that a single channel (the vertical) is
-          downloaded per station, so that 1 waveform <=> 1 station
-        - energy-magnitude.csv A tabular file (one row per event) aggregating the result
-          of the previous file into the final event energy magnitude. The final event Me
-          is the mean of all station energy magnitudes within the 5-95 percentiles
-        - energy-magnitude.html A report that can be opened in the user browser to
-          visualize the computed energy magnitudes on maps and HTML tables
-        - [eventid1].xml, ..., [eventid1].xml All processed events saved in QuakeMl
-          format, updated with the information on their energy magnitude
-        - energy-magnitude.log the log file where the info, errors and warnings
-          of the routine are stored. The core energy magnitude computation at station
-          level (performed via stream2segment utilities) has a separated and more
-          detailed log file (see below)
-        - station-energy-magnitude.log the log file where the info, errors and warnings
-          of the station energy magnitude computation have been stored
+
+    - **station-energy-magnitude.hdf** A tabular file where each row represents a
+      station(^) and each column the station computed data and metadata,
+      including the station energy magnitude.
+
+      (^) Note: technically speaking, a single HDF row represents a waveform.
+      However, there is no distinction because for each station a single channel
+      (the vertical component `BHZ`) is downloaded (just consider this if you
+      increase the station channels to download in `download.yaml`)
+
+
+    - **energy-magnitude.csv** A tabular file where each row represents a seismic
+      event, aggregating the result of the previous file into the final event energy
+      magnitude. The event Me is the mean of all station energy magnitudes within
+      the 5-95 percentiles. Empty or non-numeric Me values indicate that the energy
+      magnitude could not be computed or resulted in invalid values (NaN, null, +-inf)
+
+
+    - **energy-magnitude.html** A report that can be opened in the user browser to
+      visualize the computed energy magnitudes on maps and HTML tables
+
+
+    - **[eventid1].xml, ..., [eventid1].xml** All processed events saved in QuakeMl
+      format, updated with the information of their energy magnitude. Only events
+      with valid Me will be saved
+
+
+    - **energy-magnitude.log** the log file where the info, errors and warnings
+      of the routine are stored. The core energy magnitude computation at station
+      level (performed via `stream2segment` utilities) has a separated and more
+      detailed log file (see below)
+
+
+    - **station-energy-magnitude.log** the log file where the info, errors and
+      warnings of the station energy magnitude computation have been stored
 
 
     Examples. In order to process all segments of the events occurred ...
