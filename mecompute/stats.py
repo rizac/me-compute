@@ -59,7 +59,7 @@ def get_report_rows(hdf_path_or_df):
     # see process.py:main for a list of columns:
     dfr = hdf_path_or_df
     if not isinstance(hdf_path_or_df, pd.DataFrame):
-        dfr: pd.DataFrame = pd.read_hdf(hdf_path)  # noqa
+        dfr: pd.DataFrame = pd.read_hdf(hdf_path_or_df)  # noqa
 
     for ev_db_id, df_ in dfr.groupby('event_db_id'):
 

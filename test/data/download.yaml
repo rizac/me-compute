@@ -10,7 +10,7 @@
 # suggest sqlite for small to medium data or enough system RAM (as a rule of thumb:
 # less than a million segments, and/or more than 8GB of RAM) and postgres otherwise.
 # For info see: http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls
-dburl: sqlite:////./db.sqlite
+dburl: sqlite:///./db.sqlite
 
 # Limit to events / data centers / station / channels on or after the specified start
 # time. Specify an ISO-formatted date or date-time string, or an integer >=0 to denote

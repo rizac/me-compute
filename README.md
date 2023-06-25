@@ -4,19 +4,16 @@
 and migration from a private repository, please DO NOT CLONE or USE. In case of info, contact 
 me or open an issue**
 
-Program to compute energy Magnitude (Me) from downloaded seismic waveforms:
+Program to compute energy Magnitude (Me) from downloaded seismic events. The download
+must be performed via [stream2segment](https://github.com/rizac/stream2segment)
+(shipped with this package) into a custom SQLite or Postgres database (in this case, 
+the database has to be setup beforehand).
 
-- It downloads data (waveform segments) and metadata from a FDSN event 
-  web service using [stream2segment](https://github.com/rizac/stream2segment) (available
-  with this package)
-- It computes the energy Magnitude (Me) for each downloaded segment, producing a tabular 
-  data (one row per segment) stored in HDF format 
-  (exploiting [stream2segment](https://github.com/rizac/stream2segment) processing tools)
-- It produces even-based HTML reports from each HDF table and relative QuakeML: the 
-  report should visualize easily the content of the HDF in the user browser, the QuakeML(s)
-  (one per report event) are the event QuakeML downloaded from the event web service, with
-  the inclusion of the computed Energy Magnitude
-
+Once downloaded, events and their data are fetched to compute each event Me (Me = mean 
+of all stations energy magnitudes in the 5-95 percentiles). The computed Me are available
+in several formats: **CSV** (parametric table summarizing all events in rows), 
+**HTML** (report to visualize all events and their Me on a map) and 
+**QuakeMl** (one file per event, updated with their computed Me).
 
 
 ## Installation:
@@ -67,63 +64,65 @@ where the waveforms and metadata downloaded from the event (parameter `events_ur
 and dataselect (`data_url`) FDSN web services, and all other parameters, if needed.
 
 
-### Download:
+### Events and data Download:
 
 The download routine downloads data and metadata from the configured FDSN
-event and dataselect web services into the database. The command is simply an
-alias to [stream2segment](https://github.com/rizac/stream2segment) `download`
-command with the configured `download.yaml`. Within the me-computed repository:
+event and dataselect web services into the database (Sqlite or Postgres using
+[stream2segment](https://github.com/rizac/stream2segment) (with Postgres,
+the db has to be setup beforehand) . Open `download.yaml`
+(or a copy of it) and cconfigure `dburl` (ideally, you might want to setup also
+`start`, `end`, `events_url` and `data_url`):
 
 ```commandline
-me-compute download
+s2s download -d download.yaml
 ```
-(the `-c` option allows to specify a different config file. Type 
-`me-compute download --help` for details)
 
-### Process
 
-The process routine compute the station magnitude for a temporal selection of
-waveforms saved on the database, producing a HDF file where each row is
-a waveform, and columns are the waveform properties among which 
-"station_energy_magnitude":
+### Me computation
+
+To compute the energy magnitude of events within a certain time range from the 
+data downloaded in the database
 
 ```bash
-me-compute process -s [START] -e [END] -d [download.yaml] [ROOT_DIR]
-```
-(type `me-compute process --help` for details)
-
-    > Note: Because by default we download only one channel per station, a 
-      waveform always correspond to a station. See 'channel' in download.yaml  
-
-The produced outoput is a **directory** inside [ROOT_DIR], containing several
-files (log file for inspecting the processing) and the HDF file mentioned above:
-
-- me-compute_[START]_[END]:
-  - me-compute_[START]_[END].hdf
-  - me-compute_[START]_[END].log
-
-### Report
-
-This final command sums up the routine chain computing the final energy 
-magnitude at event level: it takes as input one or more HDF file produced with 
-the `process` command, and for each HDF file computes the energy magnitude for 
-each event:
-
-```bash
-me-compute report [HDF_FILE_PAH] ...
+me-compute -s [START] -e [END] -d [download.yaml] [OUTPUT_DIR]
 ```
 
-The command saves, alongside the HDF file, at least three files:
+An excerpt of the program usage is available below (type `me-compute --help` for more 
+details):
 
-- me-compute_[START]_[END].csv: a CSV file where each row is an event, and 
-  columns are the event properties among which "Me" is the energy magnitude
-- me-compute_[START]_[END].html: an interactive HTML file where the CSV data
-  can be more easily visualized 
-- [event_id].xml: The **event QuakeML file with the energy magnitude field 
-  appended**. The number of xml files depends on the distinct events present in the 
-  input proicessing file (HDF)
+    OUTPUT_DIR: the destination root directory. You can use the special characters %S%
+    and %E% that will be replaced with the start and end time in ISO format, computed
+    from the given parameters. The output directory and its parents will be created if
+    they do not exist
+
+    In the output directory, the following files will be saved:
+
+    - station-energy-magnitude.hdf A tabular files where each row represents a
+      station/waveform and each column the station computed data and metadata,
+      including the station energy magnitude.
+      Note that the program assumes that a single channel (the vertical) is
+      downloaded per station, so that 1 waveform <=> 1 station
+
+    - energy-magnitude.csv A tabular file (one row per event) aggregating the result
+      of the previous file into the final event energy magnitude. The final event Me
+      is the mean of all station energy magnitudes within the 5-95 percentiles
+
+    - energy-magnitude.html A report that can be opened in the user browser to
+      visualize the computed energy magnitudes on maps and HTML tables
+
+    - [eventid1].xml, ..., [eventid1].xml All processed events saved in QuakeMl
+      format, updated with the information on their energy magnitude
+
+    - energy-magnitude.log the log file where the info, errors and warnings
+      of the routine are stored. The core energy magnitude computation at station
+      level (performed via stream2segment utilities) has a separated and more
+      detailed log file (see below)
+
+    - station-energy-magnitude.log the log file where the info, errors and warnings
+      of the station energy magnitude computation have been stored
 
 
+<!--
 ### Cron job (schedule downloads+process+report regularly) 
 
 Assuming your Python virtualenv is at `[VEN_PATH]`
@@ -164,6 +163,7 @@ a currently working example on a remote server
 0 4 * * * [VENV_PATH]/bin/python [VENV_PATH]/bin/me-compute process -d [DOWNLOAD_YAML] [START] [END]
 30 7 * * * [VENV_PATH]/bin/python [VENV_PATH]/bin/me-compute report /home/me/mecompute/mecomputed/
 ```
+-->
 
 <!--
 ## Misc

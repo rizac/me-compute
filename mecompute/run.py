@@ -7,7 +7,8 @@ import sys
 import csv
 from datetime import datetime, date, timedelta
 from http.client import HTTPException
-from os.path import join, dirname, isdir, basename, splitext, isfile, abspath
+from os.path import join, dirname, isdir, basename, splitext, isfile, abspath, isabs, \
+    relpath
 from urllib.error import URLError, HTTPError
 
 import click
@@ -38,27 +39,25 @@ assert isfile(REPORT_TEMPLATE_PATH)
 @click.command(context_settings=dict(max_content_width=89),)
 @click.option('d_config', '-d', type=click.Path(exists=True),
               help=f"The path of the download configuration file used to download "
-                   f"the data. Used get the URL of the database where events and "
-                   f"waveforms will be fetched (all other properties will be ignored). "
-                   f"If the output directory already exists and force_overwrite is "
-                   f"False, this parameter will be ignored")
+                   f"the data. Used to get the URL of the database where events and "
+                   f"waveforms will be fetched (all other properties will be ignored)")
 @click.option('start', '-s', type=click.DateTime(), default=None,
-              help="if the database data has to be used, set the start time of the "
+              help="the start time of the "
                    "db events to fetch (UTC ISO-formatted string). "
                    "If missing, it is set as `end` minus `duration` days")
 @click.option('end', '-e', type=click.DateTime(), default=None,
-              help="if the database data has to be used, set end start time of the "
+              help="the end time of the "
                    "db events to fetch (UTC ISO-formatted string). "
                    "If missing, it is set as `start` plus `duration`. If `start` is "
                    "also missing, it defaults as today at midnight")
 @click.option('time_window', '-t', type=int, default=None,
-              help="if the database data has to be used, set the start time of the "
-                   "db events to fetch, set the time window, in days of teh events to "
+              help="the time window, in days of teh events to "
                    "fetch. If missing, it defaults to 1. If both time bounds (start, "
                    "end) are provided, it is ignored")
-@click.option('-f', '--force-overwrite', is_flag=True,
-              help='Force overwrite all files if it already exist. Default is false '
-                   '(use existing files - if found - and do not overwrite them)')
+@click.option('force_overwrite', '-f', is_flag=True,
+              help='Force overwrite existing files. Default is false which will try to '
+                   'preserve existing files (outdated files, if found, will be '
+                   'overwritten anyway')
 @click.option('p_config', '-pc', type=click.Path(exists=True),
               default=None,
               help=f"The path of the configuration file used for processing the data. "
@@ -76,15 +75,61 @@ assert isfile(REPORT_TEMPLATE_PATH)
 @click.argument('output_dir', required=True)
 def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template,
         output_dir):
+    """
+    Computes the energy magnitude (Me) from a selection of events and waveforms
+    previously downloaded with stream2segment and saved on a SQLite or Postgres database.
+
+    OUTPUT_DIR: the destination root directory. You can use the special characters %S%
+    and %E% that will be replaced with the start and end time in ISO format, computed
+    from the given parameters. The output directory and its parents will be created if
+    they do not exist
+
+    In the output directory, the following files will be saved:
+        - station-energy-magnitude.hdf A tabular files where each row represents a
+          station/waveform and each column the station computed data and metadata,
+          including the station energy magnitude.
+          Note that the program assumes that a single channel (the vertical) is
+          downloaded per station, so that 1 waveform <=> 1 station
+        - energy-magnitude.csv A tabular file (one row per event) aggregating the result
+          of the previous file into the final event energy magnitude. The final event Me
+          is the mean of all station energy magnitudes within the 5-95 percentiles
+        - energy-magnitude.html A report that can be opened in the user browser to
+          visualize the computed energy magnitudes on maps and HTML tables
+        - [eventid1].xml, ..., [eventid1].xml All processed events saved in QuakeMl
+          format, updated with the information on their energy magnitude
+        - energy-magnitude.log the log file where the info, errors and warnings
+          of the routine are stored. The core energy magnitude computation at station
+          level (performed via stream2segment utilities) has a separated and more
+          detailed log file (see below)
+        - station-energy-magnitude.log the log file where the info, errors and warnings
+          of the station energy magnitude computation have been stored
+
+
+    Examples. In order to process all segments of the events occurred ...
+
+    ... yesterday:
+
+        me-compute OUT_DIR
+
+    ... in the last 2 days:
+
+        me-compute -t 2 OUT_DIR
+
+    ... on January the 2nd and January the 3rd, 2016:
+
+        process -s 2016-01-02 -t 2 OUT_DIR
+    """
     # create output directory within destdir and assign new name:
+    start, end = _get_timebounds(start, end, time_window)
     dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
-    file_handler = logging.FileHandler(filename='energy-magnitude.log')
+    file_handler = logging.FileHandler(mode='w+',
+                                       filename=join(dest_dir,
+                                                     'energy-magnitude.log'))
     file_handler.setLevel(logging.INFO)
     logger.addHandler(file_handler)
 
-    # if output_dir is None and not all(_ is None for _ )
     try:
-        process(d_config, start, end, time_window, dest_dir,
+        process(d_config, start, end, dest_dir,
                 force_overwrite=force_overwrite, p_config=p_config,
                 html_template=h_template)
     except MeRoutineError as merr:
@@ -102,32 +147,11 @@ class MeRoutineError(Exception):
     pass
 
 
-def process(dconfig, start, end, duration, dest_dir,
+def process(dconfig, start, end, dest_dir,
             force_overwrite=False,
             p_config=None, html_template=None):
-    """
-    process downloaded events computing their energy magnitude (Me).
+    """process downloaded events computing their energy magnitude (Me)"""
 
-    ROOT_OUTPUT_DIR: the destination root directory. NOTE: The output of this command
-    is a **directory** that will be created inside ROOT_OUTPUT_DIR: the directory
-    will contain several files, including a .HDF file with all waveforms processed (one
-    row per waveform) and several columns
-
-    Examples. In order to process all segments of the events occurred ...
-
-    ... yesterday:
-
-        process ROOT_OUT_DIR
-
-    ... in the last 2 days:
-
-        process ROOT_OUT_DIR -d 2
-
-    ... on January the 2nd and January the 3rd, 2016:
-
-        process -s 2016-01-02 -d 2 ROOT_OUT_DIR
-    """
-    start, end = _get_timebounds(start, end, duration)
 
     # # in case we want to query the db (e.g., min event, legacy code not used anymore):
     # from stream2segment.process import get_session
@@ -148,6 +172,11 @@ def process(dconfig, start, end, duration, dest_dir,
         try:
             with open(dconfig) as _:
                 dburl = yaml.safe_load(_)['dburl']
+                sqlite = "sqlite:///"
+                if dburl.lower().startswith(sqlite):
+                    dburl_ = dburl[len(sqlite):]
+                    if not isabs(dburl_):
+                        dburl = "sqlite:///" + abspath(join(dirname(dconfig), dburl_))
         except (FileNotFoundError, yaml.YAMLError, KeyError) as exc:
             raise MeRoutineError(f'Unable to read "dburl" from {dconfig}. '
                                  f'Check that file exists and is a well-formed '
@@ -201,7 +230,8 @@ def process(dconfig, start, end, duration, dest_dir,
         ev_catalog_id = ev_catalog_url.split('eventid=')[-1]
         # write QuakeML:
         try:
-            _write_quekeml(dest_dir, ev_catalog_url, ev_catalog_id,
+            quakeml_file = join(dest_dir, ev_catalog_id + '.xml')
+            _write_quekeml(quakeml_file, ev_catalog_url,
                            evt['Me'], evt['Me_stddev'], evt['Me_waveforms_used'],
                            author_uri, force_overwrite)
         except (OSError, HTTPError, HTTPException, URLError) as exc:
@@ -266,7 +296,7 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
         'location': {},
         'channel': {},
         'event_magnitude_type': {},
-        'event_catalog_url': {}
+        'event_url': {}
     }
 
     if p_config is None:
@@ -298,14 +328,13 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
         if dtype == 'str':
             min_itemsize[col] = max(len(v) for v in mapping.values())
 
-    dataframe.to_hdf(outfile, format='table', key='me_computed_waveforms_table',
+    dataframe.to_hdf(outfile, format='table', key='station_energy_magnitudes',
                      min_itemsize=min_itemsize or None)
     return outfile
 
 
-def _write_quekeml(dest_dir, event_url, event_id, me, me_u=None, me_stations=None,
+def _write_quekeml(dest_file, event_url, me, me_u=None, me_stations=None,
                    author="", force_overwrite=False):
-    dest_file = join(dest_dir, event_id + '.xml')
     if isfile(dest_file) and not force_overwrite:
         return dest_file
 
