@@ -45,7 +45,7 @@ setup(
     # https://packaging.python.org/en/latest/single_source_version.html
     version=version,
 
-    description='A python project to compute Magnitude Energy from downloaded seismic events',
+    description='A Python project to compute energy agnitude (Me) from downloaded seismic events',
     long_description=long_description,
 
     # The project's main homepage.

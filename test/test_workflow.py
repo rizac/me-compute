@@ -21,7 +21,7 @@ TEST_TMP_ROOT_DIR = abspath(join(TEST_DATA_DIR, 'tmp'))
     ['-s', '2022-05-20T09:00:00', '-e', '2022-05-20T13:00:00'],  # process all db events
     ['-t', 100*365]  # huge time span in the past in order to process all db events
 ])
-def test_process(params):
+def test_process(params, capsys):
     """test the processing routine"""
     runner = CliRunner()
     base_name = 'energy-magnitude'
@@ -42,6 +42,10 @@ def test_process(params):
     result = runner.invoke(cli, ['-f',
                                  '-d', TEST_DOWNLOAD_CONFIG_PATH] + params +
                            [TEST_TMP_ROOT_DIR])
+
+    if result.exception:
+        import traceback
+        traceback.print_tb(result.exc_info[2])
 
     assert not result.exception
     for f, t in m_times.items():
