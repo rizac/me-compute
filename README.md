@@ -7,7 +7,8 @@ The download is performed via [stream2segment](https://github.com/rizac/stream2s
 (included in this package) into a custom SQLite or Postgres database (in this case, 
 the database has to be setup beforehand).
 
-Once downloaded, events and their data can be fetched to compute each event Me (Me = mean 
+Once downloaded, events within a customizable time window and their data can be 
+fetched from the database in order to compute each event Me (Me = mean 
 of all stations energy magnitudes in the 5th-95th percentiles). The computed Me are available
 in several formats: CSV, HDF, HTML and QuakeMl (see Usage below for details)
 
