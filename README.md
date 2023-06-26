@@ -96,23 +96,24 @@ In the output directory, the following files will be saved:
   including the station energy magnitude.
   
   (^) Note: technically speaking, a single HDF row represents a waveform. 
-  However, there is no distinction because for each station a single channel 
-  (the vertical component `BHZ`) is downloaded (just consider this if you 
-  increase the station channels to download in `download.yaml`)
+- We talk about station because by default we download a single channel 
+- per station (the vertical component `BHZ`, see `download.yaml` 
+  for details)
   
 
 - **energy-magnitude.csv** A tabular file where each row represents a seismic 
   event, aggregating the result of the previous file into the final event energy 
   magnitude. The event Me is the mean of all station energy magnitudes within 
   the 5-95 percentiles. Empty or non-numeric Me values indicate that the energy 
-  magnitude could not be computed or resulted in invalid values (NaN, null, +-inf)
+  magnitude could not be computed or resulted in invalid values (NaN, null, 
+  +-inf)
 
 
 - **energy-magnitude.html** A report that can be opened in the user browser to
   visualize the computed energy magnitudes on maps and HTML tables
 
 
-- **[eventid1].xml, ..., [eventid1].xml** All processed events saved in QuakeMl
+- **[eventid1].xml, ..., [eventid1].xml** All processed events saved in QuakeML
   format, updated with the information of their energy magnitude. Only events 
   with valid Me will be saved
 
@@ -129,31 +130,21 @@ In the output directory, the following files will be saved:
 
 ### Cron job (schedule downloads+ Me computation)
 
-Assuming your Python virtualenv is at `[VEN_PATH]`
-With your python virtualenv activated (`source [VENV_PATH]/bin/activate`),
+Assuming your Python virtualenv is at `[VEN_PATH]`, with your python 
+virtualenv activated (`source [VENV_PATH]/bin/activate`),
 type `which me-compute`. You should see something like
 `[VENV_PATH]/bin/me-compute` (same for `which s2s`). 
 
 With the paths above, you can set up cron jobs to schedule all above routines.  
 For instance, below an example file that can be edited via
-`crontab -e` (https://linux.die.net/man/1/crontab) and is taken from
-a currently working example on a remote server.
+`crontab -e` (https://linux.die.net/man/1/crontab):
 
-It downloads events and data of the 
-previous day each day at midnight and 5 minutes (the download time span are set in 
-the download.yaml file), and after the download is completed (estimated in 5 hours) 
-it computes the energy magnitude in a
-specified directory with start and end time encoded in the directory name:
+It downloads every day shortly after midnight (00:05) events and data of the 
+previous day (the download time window must be configured in 
+the download.yaml file). Afterwards, it computes the energy magnitude at 5:00 AM
+(5 hours are a more than sufficient time to complete the download of all data):
 
-```bash
-# Edit this file to introduce tasks to be run by cron.
-# 
-...
-# 
-# For example, you can run a backup of all your user accounts
-# at 5 a.m every week with:
-# 0 5 * * 1 tar -zcf /var/backups/home.tgz /home/
-# 
+```bash 
 # For more information see the manual pages of crontab(5) and cron(8)
 # 
 # m h  dom mon dow   command
