@@ -23,7 +23,7 @@ lxml==4.9.2
 MarkupSafe==2.1.3
 matplotlib==3.7.1
 mccabe==0.7.0
--e git+https://github.com/rizac/me-compute.git@5b34509404d4de9be0c1656f865c0d900da1b105#egg=me_compute
+# -e git+https://github.com/rizac/me-compute.git@5b34509404d4de9be0c1656f865c0d900da1b105#egg=me_compute
 msgpack==1.0.5
 numexpr==2.8.4
 numpy==1.25.0
@@ -47,7 +47,7 @@ scipy==1.10.1
 sdaas @ git+https://git@github.com/rizac/sdaas.git@6647d5dd3e802019a5fcdaf9758f912242a105c9
 six==1.16.0
 SQLAlchemy==2.0.16
-stream2segment @ git+https://git@github.com/rizac/stream2segment.git@2b02788af253e6e1e7f9c3ac2f9c5642ecac1a2d
+stream2segment @ git+https://git@github.com/rizac/stream2segment.git@9101dd52485ec9ddfd7e44c19812474541784ce3
 tables==3.8.0
 tomlkit==0.11.8
 typing_extensions==4.6.3
