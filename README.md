@@ -10,7 +10,10 @@ the database has to be setup beforehand).
 Once downloaded, events and data within a customizable time window can be 
 fetched from the database in order to compute each event Me (Me = mean 
 of all stations energy magnitudes in the 5th-95th percentiles). The computed Me are available
-in several formats: CSV, HDF, HTML and QuakeMl (see Usage below for details)
+in several formats: CSV, HDF, HTML and QuakeMl (see Usage below for details).
+
+The download + processing routines can be chained and scheduled on a server to compute
+the energy magnitude in semi-realtime (e.g. daily or weekly. See instructions below)
 
 
 ## Installation:
