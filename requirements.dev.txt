@@ -47,7 +47,7 @@ scipy==1.10.1
 sdaas @ git+https://git@github.com/rizac/sdaas.git@6647d5dd3e802019a5fcdaf9758f912242a105c9
 six==1.16.0
 SQLAlchemy==2.0.16
-stream2segment @ git+https://git@github.com/rizac/stream2segment.git@9101dd52485ec9ddfd7e44c19812474541784ce3
+stream2segment @ git+https://git@github.com/rizac/stream2segment.git@5e5ad433667fd86257af2bad2861ddb9f3d4c8f5
 tables==3.8.0
 tomlkit==0.11.8
 typing_extensions==4.6.3
