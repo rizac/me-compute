@@ -84,13 +84,14 @@ To compute the energy magnitude of the events saved on the db, you run the
 me-compute -s [START] -e [END] -d download.yaml ... [OUTPUT_DIR]
 ```
 
-(Type `me-compute --help` for more details)
+
+START and END are the start and end time of the 
+events to consider, in ISO format (e.g. "2016-03-31"). If omitted, they will be
+inferred (Type `me-compute --help` for more details)
 
 OUTPUT_DIR is the destination directory. You can use the special characters 
-`%S%` and `%E%` that will be replaced with the start and end time in ISO format, 
-computed from the given parameters. The output directory and its parents will be 
-created if they do not exist. START and END are the start and end time of the 
-events to consider, in ISO format (e.g. "2016-03-31")
+`%S%` and `%E%` that will be replaced with the start and end time strings (see above). 
+The output directory and its parents will be created if they do not exist. 
 
 In the output directory, the following files will be saved:
 
@@ -99,8 +100,8 @@ In the output directory, the following files will be saved:
   including the station energy magnitude.
   
   (^) Note: technically speaking, a single HDF row represents a waveform. 
-- We talk about station because by default we download a single channel 
-- per station (the vertical component `BHZ`, see `download.yaml` 
+  We talk about station because by default we download a single channel 
+  per station (the vertical component `BHZ`, see `download.yaml` 
   for details)
   
 
