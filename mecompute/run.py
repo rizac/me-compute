@@ -135,11 +135,15 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
 
         process -s 2016-01-02 -t 2 OUT_DIR
     """
-    start, end = _get_timebounds(start, end, time_window)
-    dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
-    ret = process(d_config, start, end, dest_dir,
-                  force_overwrite=force_overwrite, p_config=p_config,
-                  html_template=h_template)
+    if start is None and end is None and time_window is None:
+        print('No time bounds specified. Please provide -s, -e or -t', file=sys.stderr)
+        ret = False
+    else:
+        start, end = _get_timebounds(start, end, time_window)
+        dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
+        ret = process(d_config, start, end, dest_dir,
+                      force_overwrite=force_overwrite, p_config=p_config,
+                      html_template=h_template)
     if ret:
         sys.exit(0)
     sys.exit(1)

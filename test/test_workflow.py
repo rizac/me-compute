@@ -34,6 +34,19 @@ def test_proc_ess_params(mock_process, capsys):
            timedelta(days=days)
 
 
+@patch('mecompute.run.process')
+def test_proc_no_time_bounds(mock_process, capsys):
+    runner = CliRunner()
+    now = datetime.utcnow().replace(microsecond=0,hour=0, minute=0, second=0)
+    days = 365
+    result = runner.invoke(cli, ['-f',
+                                 '-d', TEST_DOWNLOAD_CONFIG_PATH,
+                                 TEST_TMP_ROOT_DIR])
+    assert not mock_process.called
+    assert 'no time bounds specified' in result.output.lower()
+    assert result.exit_code != 0
+
+
 @pytest.mark.parametrize('params', [
     ['-s', '2022-05-20T09:00:00', '-e', '2022-05-20T13:00:00'],  # process all db events
 ])
