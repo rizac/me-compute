@@ -125,7 +125,7 @@ successive equally spaced points (x values) in any of these forms:
 # from math import factorial  # for savitzky_golay function
 # import numpy for efficient computation:
 import numpy as np
-import pandas as pd
+# import pandas as pd
 from scipy.interpolate import CubicSpline
 from scipy.constants import pi
 # from scipy import stats
