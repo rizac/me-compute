@@ -123,13 +123,19 @@ def _get_report_rows(hdf_path_or_df, db_session):
         for (net, sta), sta_df in group_sta:
             lat = np.round(sta_df['station_latitude'].iat[0], 3)
             lon = np.round(sta_df['station_longitude'].iat[0], 3)
-            res = np.nan if invalid_me else \
-                sta_df['station_energy_magnitude'].iat[0] - me_st_mean
+            delta_me = None
+            station_me = sta_df['station_energy_magnitude'].iat[0]
+            if not invalid_me:
+                with pd.option_context('mode.use_inf_as_na', True):
+                    if not pd.isna(station_me):
+                        delta_me = station_me - me_st_mean
+            # res = np.nan if invalid_me else \
+            #     sta_df['station_energy_magnitude'].iat[0] - me_st_mean
             dist_deg = np.round(sta_df['station_event_distance_deg'].iat[0], 3)
             stas.append([lat if np.isfinite(lat) else None,
                          lon if np.isfinite(lon) else None,
                          net + '.' + sta,
-                         res if np.isfinite(res) else None,
+                         delta_me,
                          dist_deg if np.isfinite(dist_deg) else None])
 
         yield event, stas

@@ -372,7 +372,7 @@ def main(segment, config):
         'station': segment.station.station,
         'location': segment.channel.location,
         'channel': segment.channel.channel,
-        'event_db_id': segment.event.id,
+        'event_db_id': segment.event_id,
         'station_event_distance_deg': distance_deg,
         'station_latitude': segment.station.latitude,
         'station_longitude': segment.station.longitude,
