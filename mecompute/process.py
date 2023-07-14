@@ -133,7 +133,7 @@ from scipy.constants import pi
 from obspy import UTCDateTime  # , read, Trace, Stream,
 # from obspy.geodetics import degrees2kilometers as d2km
 # from obspy.taup import TauPyModel
-from obspy.signal.konnoohmachismoothing import konno_ohmachi_smoothing
+# from obspy.signal.konnoohmachismoothing import konno_ohmachi_smoothing
 
 # straem2segment functions for processing obspy Traces. This is just a list of possible
 # functions to show how to import them:
