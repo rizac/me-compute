@@ -319,7 +319,7 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
 
     for res_dict in imap(main_function,
                          segments_selection=segments_selection,
-                         dburl=dburl,
+                         dburl=dburl, verbose=True,
                          config=p_config, logfile=logfile,
                          multi_process=True, chunksize=None):
         for col in categorical_columns:
