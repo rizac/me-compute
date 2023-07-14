@@ -140,12 +140,16 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
         ret = False
     else:
         start, end = _get_timebounds(start, end, time_window)
+        print(f'Computing Me for events within: [{start}, {end}]', file=sys.stderr)
         dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
         ret = process(d_config, start, end, dest_dir,
                       force_overwrite=force_overwrite, p_config=p_config,
                       html_template=h_template)
     if ret:
         sys.exit(0)
+    print('WARNING: the program did not exit correctly, '
+          'please check log files for details',
+          file=sys.stderr)
     sys.exit(1)
 
 
@@ -177,31 +181,32 @@ def process(dconfig, start, end, dest_dir,
 
     logger.setLevel(logging.INFO)
     file_handler = logging.FileHandler(mode='w+',
-                                       filename=join(dest_dir, base_name + '.log'))
+                                       filename=abspath(join(dest_dir,
+                                                             base_name + '.log')))
     logger.addHandler(file_handler)
 
     # set outfile
     station_me_file = join(dest_dir, 'station-' + base_name + '.hdf')
 
+    try:
+        with open(dconfig) as _:
+            dburl = yaml.safe_load(_)['dburl']
+            # make non abs-path relative to the download yaml file:
+            sqlite = "sqlite:///"
+            if dburl.lower().startswith(sqlite):
+                dburl_ = dburl[len(sqlite):]
+                if not isabs(dburl_):
+                    dburl = "sqlite:///" + abspath(join(dirname(dconfig), dburl_))
+    except (FileNotFoundError, yaml.YAMLError, KeyError) as exc:
+        logger.error(f'Unable to read "dburl" from {dconfig}. '
+                     f'Check that file exists and is a well-formed '
+                     f'YAML')
+        return False
+
     if not isfile(station_me_file) or force_overwrite:
 
-        logger.info(f'Computing station energy magnitudes and saving data to '
-                    f'{station_me_file}. See relative log file for details')
-
-        try:
-            with open(dconfig) as _:
-                dburl = yaml.safe_load(_)['dburl']
-                # make non abs-path relative to the download yaml file:
-                sqlite = "sqlite:///"
-                if dburl.lower().startswith(sqlite):
-                    dburl_ = dburl[len(sqlite):]
-                    if not isabs(dburl_):
-                        dburl = "sqlite:///" + abspath(join(dirname(dconfig), dburl_))
-        except (FileNotFoundError, yaml.YAMLError, KeyError) as exc:
-            logger.error(f'Unable to read "dburl" from {dconfig}. '
-                         f'Check that file exists and is a well-formed '
-                         f'YAML')
-            return False
+        logger.info(f'Computing station energy magnitudes to file: '
+                    f'{station_me_file}')
 
         segments_selection = {
             'event.time': '(%s, %s]' % (start, end),
@@ -223,6 +228,11 @@ def process(dconfig, start, end, dest_dir,
         station_me_df = pd.read_hdf(station_me_file,
                                     usecols=_REQUIRED_STATIONS_COLUMNS)
 
+    if station_me_df.empty:
+        logger.warning('No station energy magnitude computed, check '
+                       f'{basename(station_me_file)} log for details')
+        return False
+
     if html_template is None:
         html_template = REPORT_TEMPLATE_PATH
 
@@ -239,6 +249,7 @@ def process(dconfig, start, end, dest_dir,
     ev_headers = None
     csv_evts = []
     html_evts = {}
+    quakeml_written = 0
     logger.info(f'Computing events energy magnitudes')
     for evt, stations in get_report_rows(station_me_df, dburl):
         csv_evts.append(evt)
@@ -248,16 +259,30 @@ def process(dconfig, start, end, dest_dir,
         ev_catalog_id = evt['id']
         # write QuakeML:
         try:
-            quakeml_file = join(dest_dir, ev_catalog_id + '.xml')
-            _write_quekeml(quakeml_file, ev_catalog_url,
-                           evt['Me'], evt['Me_stddev'], evt['Me_waveforms_used'],
-                           author_uri, force_overwrite)
+            e_mag, e_mag_u = evt['Me'], evt['Me_stddev']
+            if not pd.isna(e_mag) and not pd.isna(e_mag_u):
+                quakeml_written += 1
+                quakeml_file = join(dest_dir, ev_catalog_id + '.xml')
+                _write_quekeml(quakeml_file, ev_catalog_url,
+                               e_mag, e_mag_u, evt['Me_waveforms_used'],
+                               author_uri, force_overwrite)
         except (OSError, HTTPError, HTTPException, URLError) as exc:
             logger.warning(f'Unable to create QuakeML for {ev_catalog_id}: {exc}')
 
         html_evts[evt['db_id']] = [[evt[h] for h in ev_headers], stations]
         if sel_event_id is None:
             sel_event_id = evt['db_id']
+
+    if csv_evts:
+        logger.info(f'Me computed for {len(csv_evts)} event(s)')
+        if not quakeml_written:
+            logger.warning(f'No Me computed (No QuakeML saved). Possible cause: '
+                           f'station energy magnitudes all missing/NaN. Inspect station '
+                           f'magnitudes file for details')
+        else:
+            logger.info(f'{quakeml_written} QuakeML(s) created')
+    else:
+        logger.warning(f'No Me computed: no events found)')
 
     if csv_evts and (not isfile(csv_fpath) or force_overwrite):
         logger.info(f'Saving event energy magnitudes to: {csv_fpath}')
@@ -336,6 +361,9 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
                 categorical_columns[col][value] = len(categorical_columns[col])
             res_dict[col] = categorical_columns[col][value]
         processed_waveforms.append(res_dict)
+
+    if not processed_waveforms:
+        return pd.DataFrame()
 
     dataframe = pd.DataFrame(processed_waveforms)
     # handle str columns, convert them to str or categorical:
