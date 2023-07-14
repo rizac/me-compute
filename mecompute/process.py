@@ -235,7 +235,7 @@ def main(segment, config):
     # (no gaps/overlaps)
     try:
         trace = bandpass_remresp(segment, config)
-    except (ValueError, TypeError) as exc:
+    except Exception as exc:  # noqa
         raise SkipSegment('error in bandpass_remresp: %s' % str(exc))
 
     spectra = signal_noise_spectra(segment, config)
