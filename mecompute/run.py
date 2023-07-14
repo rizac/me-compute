@@ -245,7 +245,7 @@ def process(dconfig, start, end, dest_dir,
         if ev_headers is None:
             ev_headers = list(csv_evts[0].keys())
         ev_catalog_url = evt['url']
-        ev_catalog_id = ev_catalog_url.split('eventid=')[-1]
+        ev_catalog_id = evt['id']
         # write QuakeML:
         try:
             quakeml_file = join(dest_dir, ev_catalog_id + '.xml')

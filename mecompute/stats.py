@@ -97,7 +97,7 @@ def _get_report_rows(hdf_path_or_df, db_session):
             'time': event.time.isoformat('T'),
             'stations': int(group_sta.ngroups),
             'waveforms': 0,
-            'catalog_id': str(event.event_id),
+            'id': str(event.event_id),
             'db_id': int(ev_db_id),  # noqa
         }
 
@@ -116,17 +116,6 @@ def _get_report_rows(hdf_path_or_df, db_session):
         event['Me'] = None if invalid_me else float(np.round(me, 2))
         event['Me_stddev'] = None if invalid_me else float(np.round(me_std, 3))
         event['Me_waveforms_used'] = int(num_waveforms)
-
-        # row.update(dict(zip(['Me_mean', 'Me_stddev', 'Me_waveforms_used'],
-        #                     Stats.Me_p.compute(values))))
-        # row.update(dict(zip(['Me_t M', 'Me_t SD', 'Me_t #'], Stats.Me_t.compute(values, anomalyscores))))
-        # row.update(dict(zip(['Me_W (mean)', 'Me_W (stddev)'], Stats.Me_w.compute(values, anomalyscores))))
-        # row.update(dict(zip(['Me_w2 M', 'Me_w2 SD'], Stats.Me_w2.compute(values, anomalyscores))))
-
-        # replace NaNs with None:
-        # for key, isna in zip(list(event), pd.isna(list(event.values()))):
-        #     if isna:
-        #         event[key] = None
 
         # Stations residuals:
         me_st_mean = Stats.Me_p.compute(values)[0]  # row['Me M']
