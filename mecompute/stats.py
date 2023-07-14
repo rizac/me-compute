@@ -9,6 +9,8 @@ import math
 
 from enum import Enum
 
+from sqlalchemy.orm import load_only
+
 # from stream2segment.download.db import get_session
 # from stream2segment.io import yaml_load
 # from stream2segment.io.db import close_session
@@ -54,31 +56,48 @@ class Stats(Enum):
         return avg_std_count(values, weights, round=ROUND)
 
 
-def get_report_rows(hdf_path_or_df):
+def get_report_rows(hdf_path_or_df, dburl):
+    from stream2segment.process import get_session
+    session = get_session(dburl)
+    try:
+        yield from _get_report_rows(hdf_path_or_df, session)
+    finally:
+        session.close()
+
+
+def _get_report_rows(hdf_path_or_df, db_session):
     """Yield a series of dicts denoting a row of the report"""
+    from stream2segment.process import Event
+
     # see process.py:main for a list of columns:
     dfr = hdf_path_or_df
     if not isinstance(hdf_path_or_df, pd.DataFrame):
         dfr: pd.DataFrame = pd.read_hdf(hdf_path_or_df)  # noqa
 
     for ev_db_id, df_ in dfr.groupby('event_db_id'):
+        event = db_session.query(Event).\
+            options(load_only(Event.magnitude, Event.mag_type, Event.webservice_id,
+                              Event.latitude, Event.longitude, Event.depth_km,
+                              Event.time, Event.event_id)).\
+            filter(Event.id == ev_db_id).one()
 
         group_sta = df_.groupby(['network', 'station'])
 
         # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
         event = {  # we are working in python 3.6.9+, order is preserved
-            'url': f"{df_['event_url'].iat[0]}?eventid={df_['event_id'].iat[0]}",
-            'magnitude': float(np.round(df_['event_magnitude'].iat[0], 2)),
-            'magnitude_type': df_['event_magnitude_type'].iat[0],
+            'url': event.url,
+            'magnitude': event.magnitude,
+            'magnitude_type': event.mag_type,
             'Me': np.nan,
             'Me_stddev': np.nan,
             'Me_waveforms_used': 0,
-            'latitude': float(np.round(df_['event_latitude'].iat[0], 3)),
-            'longitude': float(np.round(df_['event_longitude'].iat[0], 3)),
-            'depth_km': float(np.round(df_['event_depth_km'].iat[0], 1)),
-            'time': df_['event_time'].iat[0].isoformat('T'),
+            'latitude': float(np.round(event.latitude, 5)),
+            'longitude': float(np.round(event.longitude, 5)),
+            'depth_km': float(np.round(event.depth_km, 3)),
+            'time': event.time.isoformat('T'),
             'stations': int(group_sta.ngroups),
             'waveforms': 0,
+            'catalog_id': str(event.event_id),
             'db_id': int(ev_db_id),  # noqa
         }
 
@@ -105,9 +124,9 @@ def get_report_rows(hdf_path_or_df):
         # row.update(dict(zip(['Me_w2 M', 'Me_w2 SD'], Stats.Me_w2.compute(values, anomalyscores))))
 
         # replace NaNs with None:
-        for key, isna in zip(list(event), pd.isna(list(event.values()))):
-            if isna:
-                event[key] = None
+        # for key, isna in zip(list(event), pd.isna(list(event.values()))):
+        #     if isna:
+        #         event[key] = None
 
         # Stations residuals:
         me_st_mean = Stats.Me_p.compute(values)[0]  # row['Me M']
@@ -117,7 +136,7 @@ def get_report_rows(hdf_path_or_df):
             lon = np.round(sta_df['station_longitude'].iat[0], 3)
             res = np.nan if invalid_me else \
                 sta_df['station_energy_magnitude'].iat[0] - me_st_mean
-            dist_deg = np.round(sta_df['event_station_distance_deg'].iat[0], 3)
+            dist_deg = np.round(sta_df['station_event_distance_deg'].iat[0], 3)
             stas.append([lat if np.isfinite(lat) else None,
                          lon if np.isfinite(lon) else None,
                          net + '.' + sta,

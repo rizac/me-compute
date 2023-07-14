@@ -149,6 +149,12 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
     sys.exit(1)
 
 
+_REQUIRED_STATIONS_COLUMNS = [
+    'event_db_id', 'station_latitude', 'station_longitude', 'network',
+    'station', 'station_energy_magnitude', 'station_event_distance_deg'
+]
+
+
 def process(dconfig, start, end, dest_dir,
             force_overwrite=False,
             p_config=None, html_template=None):
@@ -203,7 +209,8 @@ def process(dconfig, start, end, dest_dir,
             'maxgap_numsamples': '(-0.5, 0.5)'
         }
         try:
-            station_me_df = _compute_station_me(station_me_file, dburl, segments_selection,
+            station_me_df = _compute_station_me(station_me_file, dburl,
+                                                segments_selection,
                                                 p_config)
             # all next files might now be outdated so we need to force updating them:
             force_overwrite = True
@@ -213,7 +220,8 @@ def process(dconfig, start, end, dest_dir,
 
     else:
         logger.info(f'Fetching station energy magnitudes from {station_me_file}')
-        station_me_df = pd.read_hdf(station_me_file)
+        station_me_df = pd.read_hdf(station_me_file,
+                                    usecols=_REQUIRED_STATIONS_COLUMNS)
 
     if html_template is None:
         html_template = REPORT_TEMPLATE_PATH
@@ -232,7 +240,7 @@ def process(dconfig, start, end, dest_dir,
     csv_evts = []
     html_evts = {}
     logger.info(f'Computing events energy magnitudes')
-    for evt, stations in get_report_rows(station_me_df):
+    for evt, stations in get_report_rows(station_me_df, dburl):
         csv_evts.append(evt)
         if ev_headers is None:
             ev_headers = list(csv_evts[0].keys())
@@ -306,8 +314,8 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
         'station': {},
         'location': {},
         'channel': {},
-        'event_magnitude_type': {},
-        'event_url': {}
+        # 'event_magnitude_type': {},
+        # 'event_url': {}
     }
 
     if p_config is None:
@@ -341,7 +349,7 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
 
     dataframe.to_hdf(outfile, format='table', key='station_energy_magnitudes',
                      min_itemsize=min_itemsize or None)
-    return outfile
+    return dataframe[_REQUIRED_STATIONS_COLUMNS].copy()
 
 
 def _write_quekeml(dest_file, event_url, me, me_u=None, me_stations=None,
