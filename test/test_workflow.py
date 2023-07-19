@@ -8,7 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from mecompute.run import cli
-from mecompute.stats import ParabolicScore2Weight, LinearScore2Weight
+from mecompute.event_me import ParabolicScore2Weight, LinearScore2Weight
 from unittest.mock import patch
 
 TEST_DATA_DIR = abspath(join(dirname(__file__), 'data'))

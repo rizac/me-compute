@@ -16,17 +16,19 @@ import yaml
 from jinja2 import Template
 import logging
 
-from mecompute.stats import get_report_rows
+from mecompute.event_me import get_events_me, get_html_report_rows
 from stream2segment.process import process as s2s_process
-from mecompute.process import main as main_function
+from mecompute.station_me import main as main_function
 
 logger = logging.getLogger('me-compute')
 
 _CONFIG_DIR = join(dirname(__file__), 'base-config')
 PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'process.yaml')
 REPORT_TEMPLATE_PATH = join(_CONFIG_DIR, 'report.template.html')
+SEGMENTS_SELECT = join(_CONFIG_DIR, 'segments_selection.yaml')
 assert isfile(PROCESS_CONFIG_PATH)
 assert isfile(REPORT_TEMPLATE_PATH)
+assert isfile(SEGMENTS_SELECT)
 
 
 #########################
@@ -203,11 +205,6 @@ def process(dconfig, start, end, dest_dir,
                      f'YAML')
         return False
 
-    if isfile(station_me_file) and not force_overwrite:
-        logger.warning('station energy magnitudes: file already exists. Delete file'
-                       'or supply the force-overwrite flag is False')
-        return False
-
     if not isfile(station_me_file) or force_overwrite:
 
         if p_config is None:
@@ -216,12 +213,10 @@ def process(dconfig, start, end, dest_dir,
         logger.info(f'Computing station energy magnitudes to file: '
                     f'{station_me_file}')
 
-        segments_selection = {
-            'event.time': '[%s, %s)' % (start, end),
-            'has_valid_data': 'true',
-            'maxgap_numsamples': '(-0.5, 0.5)',
-            'event_distance_deg': '[20, 97.5]'
-        }
+        with open(SEGMENTS_SELECT) as _:
+            segments_selection = yaml.safe_load(_)
+        segments_selection['event.time'] = '[%s, %s)' % (start, end)
+
         try:
             _compute_station_me(station_me_file, dburl, segments_selection, p_config)
             # all next files might now be outdated so we need to force updating them:
@@ -234,8 +229,9 @@ def process(dconfig, start, end, dest_dir,
         logger.info(f'Fetching station energy magnitudes from {station_me_file}')
 
     try:
-        station_me_df = pd.read_hdf(station_me_file,
-                                    usecols=_REQUIRED_STATIONS_COLUMNS)
+        station_me_df: pd.DataFrame = pd.read_hdf(station_me_file,
+                                                  usecols=_REQUIRED_STATIONS_COLUMNS)
+        assert 'event_db_id' in station_me_df.columns
     except ValueError:
         logger.warning('Unable to read station energy magnitudes file. '
                        'This might be due to no Me computed (e.g., no segment, '
@@ -247,71 +243,102 @@ def process(dconfig, start, end, dest_dir,
                        f'{basename(station_me_file)} log for details')
         return False
 
-    if html_template is None:
-        html_template = REPORT_TEMPLATE_PATH
+    csv_path = abspath(join(dest_dir, base_name + '.csv'))
+    if not isfile(csv_path) or force_overwrite:
+        logger.info(f'Computing events energy magnitudes')
+        write_events_me_csv(station_me_df, dburl, csv_path)
 
-    with open(html_template) as _:
-        template = Template(_.read())
+    try:
+        me_df = pd.read_csv(csv_path)
+        assert 'db_id' in me_df.columns
+    except Exception as exc:
+        logger.error(f'Error reading {csv_path}: {str(exc)}')
+        return False
+    # convert events to dict:
+    events = {evt['db_id'] : evt for evt in me_df.to_dict(orient="records")}
+    # keep data only for relevant events:
+    station_me_df = \
+        station_me_df.loc[station_me_df['event_db_id'].isin(events.keys()), :].copy()
 
-    csv_fpath = abspath(join(dest_dir, base_name + '.csv'))
+    quakeml_path = abspath(join(dest_dir, 'events'))
+    if not isdir(quakeml_path) or force_overwrite:
+        if not isdir(quakeml_path):
+            os.makedirs(quakeml_path)
+        logger.info(f'Saving QuakeML(s)')
+        try:
+            write_quakemls(events, quakeml_path)
+        except Exception as exc:
+            logger.error(f'Error writing QuakeMls: {str(exc)}')
+            return False
+
     html_fpath = abspath(join(dest_dir, base_name + '.html'))
+    if not isfile(html_fpath) or force_overwrite:
+        logger.info(f'Saving HTML report')
+        try:
+            write_html_report(station_me_df, events, html_template, html_fpath)
+        except Exception as exc:
+            logger.error(f'Error saving HTML report: {str(exc)}')
+            return False
 
+    return True
+
+
+def write_events_me_csv(station_me_df: pd.DataFrame, dburl, csv_path):
+    events = {}
+    with open(csv_path, 'w', newline='') as _:
+        for evt in get_events_me(station_me_df, dburl):
+            if not events:
+                ev_headers = list(evt.keys())
+                logger.info(f'Saving event energy magnitudes to: {csv_path}')
+                writer = csv.DictWriter(_, fieldnames=ev_headers)
+                writer.writeheader()
+            events[evt['db_id']] = evt
+            writer.writerow(evt)
+
+
+def write_quakemls(events: dict, dest_dir):
     author_uri = "https://github.com/rizac/me-compute"
-    title = splitext(basename(html_fpath))[0]
-
-    sel_event_id = None
-    ev_headers = None
-    csv_evts = []
-    html_evts = {}
-    quakeml_written = 0
-    logger.info(f'Computing events energy magnitudes')
-    for evt, stations in get_report_rows(station_me_df, dburl):
-        csv_evts.append(evt)
-        if ev_headers is None:
-            ev_headers = list(csv_evts[0].keys())
-        ev_catalog_url = evt['url']
-        ev_catalog_id = evt['id']
+    for evt_id, evt in events.items():
         # write QuakeML:
         try:
+            ev_catalog_id = evt['id']
+            ev_catalog_url = evt['url']
             e_mag, e_mag_u = evt['Me'], evt['Me_stddev']
-            if not pd.isna(e_mag) and not pd.isna(e_mag_u):
-                quakeml_written += 1
-                quakeml_file = join(dest_dir, ev_catalog_id + '.xml')
-                _write_quekeml(quakeml_file, ev_catalog_url,
-                               e_mag, e_mag_u, evt['Me_waveforms_used'],
-                               author_uri, force_overwrite)
+            quakeml_file = join(dest_dir, ev_catalog_id + '.xml')
+            _write_quekeml(quakeml_file, ev_catalog_url,
+                           e_mag, e_mag_u, evt['Me_waveforms_used'],
+                           author_uri)
         except (OSError, HTTPError, HTTPException, URLError) as exc:
             logger.warning(f'Unable to create QuakeML for {ev_catalog_id}: {exc}')
 
-        html_evts[evt['db_id']] = [[evt[h] for h in ev_headers], stations]
-        if sel_event_id is None:
-            sel_event_id = evt['db_id']
+    # if not ev_headers:
+    #     logger.warning(f'No Me computed (No QuakeML saved). Possible cause: '
+    #                    f'station energy magnitudes all missing/NaN. Inspect station '
+    #                    f'magnitudes file for details')
 
-    if csv_evts:
-        logger.info(f'Me computed for {len(csv_evts)} event(s)')
-        if not quakeml_written:
-            logger.warning(f'No Me computed (No QuakeML saved). Possible cause: '
-                           f'station energy magnitudes all missing/NaN. Inspect station '
-                           f'magnitudes file for details')
-        else:
-            logger.info(f'{quakeml_written} QuakeML(s) created')
-    else:
-        logger.warning(f'No Me computed: no events found)')
 
-    if csv_evts and (not isfile(csv_fpath) or force_overwrite):
-        logger.info(f'Saving event energy magnitudes to: {csv_fpath}')
-        with open(csv_fpath, 'w', newline='') as _:
-            writer = csv.DictWriter(_,fieldnames=ev_headers)
-            writer.writeheader()
-            for evt in csv_evts:
-                writer.writerow(evt)
+def write_html_report(station_me_df: pd.DataFrame, events: dict,
+                      html_template, html_fpath):
+    if html_template is None:
+        html_template = REPORT_TEMPLATE_PATH
+    with open(html_template) as _:
+        template = Template(_.read())
+    title = splitext(basename(html_fpath))[0]
+    html_evts = {}
+    ev_headers = []
+    selected_event_id = None
+    for evt, stations in get_html_report_rows(station_me_df, events):
+        if not ev_headers:
+            ev_headers = list(evt.keys())
+        evt_db_id = evt['db_id']
+        if selected_event_id is None:
+            selected_event_id = evt_db_id
+        html_evts[evt_db_id] = [[evt[h] for h in ev_headers], stations]
 
-    if sel_event_id is not None and (not isfile(html_fpath) or force_overwrite):
-        logger.info(f'Saving visual report of event energy magnitudes to: '
-                    f'{html_fpath}')
-        with open(html_fpath, 'w') as _:
-            _.write(template.render(title=title, selected_event_id=sel_event_id,
-                                    event_data=html_evts, event_headers=ev_headers))
+    with open(html_fpath, 'w') as _:
+        _.write(template.render(title=title,
+                                selected_event_id=int(selected_event_id),
+                                event_data=html_evts, event_headers=ev_headers))
     return True
 
 

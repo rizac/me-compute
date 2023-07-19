@@ -1,123 +1,8 @@
 """
-=========================================================================
-Stream2segment processing+visualization module generating a segment-based
-parametric table.
-=========================================================================
-
-A processing+visualization module implements the necessary code to process and
-visualize downloaded data.
-
-In the first case (data processing), edit this file and then, on the terminal:
-
-- Run it as a script:
-  `python <this_file_path>`
-  (see section `if __name__ == "__main__"` at the end of the module)
-
-- Run it within the `process` command:
- `s2s process -p <this_file_path> -c <config_file_path>`
-
-In the second case (data visualization), edit this file and then, to open the
-graphical user interface (GUI) in your web browser, type on the terminal:
-
- `s2s show -p <this_file_path> -c <config_file_path>`
-
-(`<config_file_path>` is the path of the associated a configuration file in YAML
-format. Optional with the `show` command).
-
-You can also separate visualization and process routines in two different
-Python modules, as long as in each single file the requirements described below
-are provided.
-
-
-Processing
-==========
-
-When processing, Stream2segment will search for a so-called "processing function", i.e.
-a function called "main":
-```
-def main(segment, config)
-```
-and execute the function on each selected segment (according to the 'segments_selection'
-parameter in the config). If you only need to run this module for processing (no
-visualization), you can skip the remainder of this introduction and go to the
-processing function documentation.
-
-
-Visualization (web GUI)
-=======================
-
-When visualizing, Stream2segment will open a web page where the user can browse
-and visualize the data. When the `show` command is invoked with no argument, the page
-will only show all database segments and their raw trace. Otherwise, Stream2segment
-will read the passed config and module, showing only selected segments (parameter
-'segments_selection' in the config) and searching for all module functions decorated with
-either "@gui.preprocess" (pre-process function) or "@gui.plot" (plot functions).
-IMPORTANT: any Exception raised  anywhere by any function will be caught and its message
-displayed on the plot.
-
-Pre-process function
---------------------
-
-The function decorated with "@gui.preprocess", e.g.:
-```
-@gui.preprocess
-def applybandpass(segment, config)
-```
-will be associated to a check-box in the GUI. By clicking the check-box,
-all plots of the page will be re-calculated with the output of this function,
-which **must thus return an ObsPy Stream or Trace object**.
-All details on the segment object can be found here:
-https://github.com/rizac/stream2segment/wiki/the-segment-object
-
-Plot functions
---------------
-
-The functions decorated with "@gui.plot", e.g.:
-```
-@gui.plot
-def cumulative(segment, config)
-```
-will be associated to (i.e., its output will be displayed in) the plot below
-the main plot. All details on the segment object can be found here:
-https://github.com/rizac/stream2segment/wiki/the-segment-object
-
-You can also call @gui.plot with arguments, e.g.:
-```
-@gui.plot(position='r', xaxis={'type': 'log'}, yaxis={'type': 'log'})
-def spectra(segment, config)
-```
-The 'position' argument controls where the plot will be placed in the GUI ('b' means
-bottom, the default, 'r' means next to the main plot, on its right) and the other two,
-`xaxis` and `yaxis`, are dict (defaulting to the empty dict {}) controlling the x and y
-axis of the plot (for info, see: https://plot.ly/python/axes/).
-
-When not given, axis types (e.g., date time vs numeric) will be inferred from the
-function's returned value which *must* be a numeric sequence (y values) taken at
-successive equally spaced points (x values) in any of these forms:
-
-- ObsPy Trace object
-
-- ObsPy Stream object
-
-- the tuple (x0, dx, y) or (x0, dx, y, label), where
-
-    - x0 (numeric, `datetime` or `UTCDateTime`) is the abscissa of the first point.
-      For time-series abscissas, UTCDateTime is quite flexible with several input
-      formats. For info see:
-      https://docs.obspy.org/packages/autogen/obspy.core.utcdatetime.UTCDateTime.html
-
-    - dx (numeric or `timedelta`) is the sampling period. If x0 has been given as
-      datetime or UTCDateTime object and 'dx' is numeric, its unit is in seconds
-      (e.g. 45.67 = 45 seconds and 670000 microseconds). If `dx` is a timedelta object
-      and x0 has been given as numeric, then x0 will be converted to UtcDateTime(x0).
-
-    - y (numpy array or numeric list) are the sequence values, numeric
-
-    - label (string, optional) is the sequence name to be displayed on the plot legend.
-
-- a dict of any of the above types, where the keys (string) will denote each sequence
-  name to be displayed on the plot legend (and will override the 'label' argument, if
-  provided)
+===========================================================
+Module computing station energy magnitude at segment level
+See `main` below for details
+===========================================================
 """
 
 # from collections import OrderedDict
@@ -228,15 +113,6 @@ def main(segment, config):
          https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#io-hdf5
 
     """
-    distance_deg = segment.event_distance_deg
-    freq_dist_table = config['freq_dist_table']
-    distances = freq_dist_table['distances']
-
-    # just in case (we should have filtered these segments already)
-    # Note on SkipSegment: provide short messages to avoid heavy log files
-    if distance_deg < distances[0] or distance_deg > distances[-1]:
-        raise SkipSegment('event distance out of bound')
-
     # bandpass the trace, according to the event magnitude.
     # WARNING: this modifies the segment.stream() permanently!
     # If you want to preserve the original stream, store trace.copy()
@@ -261,7 +137,7 @@ def main(segment, config):
     fcmax = config['preprocess']['bandpass_freq_max']  # used in bandpass_remresp
     snr_ = snr(normal_spe, noise_spe, signals_form=config['sn_spectra']['type'],
                fmin=fcmin, fmax=fcmax, delta_signal=normal_df, delta_noise=noise_df)
-    
+
     if snr_ < config['snr_threshold']:
         raise SkipSegment('Low SNR')
 
@@ -270,6 +146,21 @@ def main(segment, config):
     ##################
 
     normal_spe *= trace.stats.delta
+
+    duration = get_segment_window_duration(segment, config)
+
+    if duration == 60:
+        freq_min_index = 1  # 0.015625 (see frequencies in yaml)
+    else:
+        freq_min_index = 0  # 0.012402 (see frequencies in yaml)
+
+    freq_dist_table = config['freq_dist_table']
+    frequencies = freq_dist_table['frequencies'][freq_min_index:]
+    distances = freq_dist_table['distances']
+    try:
+        distances_table = freq_dist_table[duration]
+    except KeyError:
+        raise KeyError(f'no freq dist table implemented for {duration} seconds')
 
     # unnecessary asserts just used for testing (comment out):
     # assert sorted(distances) == distances
@@ -284,21 +175,16 @@ def main(segment, config):
     except ValueError as verr:
         raise SkipSegment('ValueError in CubicSpline')
 
-    duration = get_segment_window_duration(segment, config)
-    if duration == 60:
-        freq_min_index = 1  # 0.015625 (see frequencies in yaml)
-    else:
-        freq_min_index = 0  # 0.012402 (see frequencies in yaml)
-    frequencies = freq_dist_table['frequencies'][freq_min_index:]
     seg_spectrum = cs(frequencies)
+
     seg_spectrum_log10 = np.log10(seg_spectrum)
 
-    distindex = np.searchsorted(distances, distance_deg)
+    distance_deg = segment.event_distance_deg
+    if distance_deg < distances[0] or distance_deg > distances[-1]:
+        # just for safety (see segments_selection.yaml):
+        raise SkipSegment('event distance out of bounds')
 
-    try:
-        distances_table = freq_dist_table[duration]
-    except KeyError:
-        raise KeyError(f'no freq dist table implemented for {duration} seconds')
+    distindex = np.searchsorted(distances, distance_deg)
 
     if distances[distindex] == distance_deg:
         correction_spectrum_log10 = distances_table[distindex]
@@ -313,7 +199,7 @@ def main(segment, config):
     corrected_spectrum = seg_spectrum_log10 - correction_spectrum_log10
 
     corrected_spectrum = np.power(10, corrected_spectrum) ** 2  # convert log10A -> A^2:
-    
+
     corrected_spectrum_int_vel_square = np.trapz(corrected_spectrum, frequencies)
 
     depth_km = segment.event.depth_km
@@ -329,7 +215,7 @@ def main(segment, config):
         v_dens = 3641
         v_pwave = 8035.5
         v_swave = 4483.9
-    
+
     v_cost_p = (1. /(15. * pi * v_dens * (v_pwave ** 5)))
     v_cost_s = (1. /(10. * pi * v_dens * (v_swave ** 5)))
     # below I put a factor 2 but ... we don't know yet if it is needed
@@ -337,7 +223,7 @@ def main(segment, config):
     me_st = (2./3.) * (np.log10(energy) - 4.4)
 
     if not np.isfinite(me_st):
-        raise SkipSegment('Me nan')
+        raise SkipSegment('Me NaN')
 
     # END OF ME COMPUTATION =============================================
 

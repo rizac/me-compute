@@ -4,17 +4,14 @@ from os.path import join, dirname
 import pandas as pd
 import numpy as np
 import math
-# import sys
-
+import logging
 
 from enum import Enum
-
 from sqlalchemy.orm import load_only
 
-# from stream2segment.download.db import get_session
-# from stream2segment.io import yaml_load
-# from stream2segment.io.db import close_session
-# from stream2segment.download.db.models import Event
+from stream2segment.process import Event, get_session
+
+logger = logging.getLogger('me-compute.event_me')
 
 pct = (5, 95)  # percentiles
 score_th = 0.75  # anomaly score thresold
@@ -56,79 +53,74 @@ class Stats(Enum):
         return avg_std_count(values, weights, round=ROUND)
 
 
-def get_report_rows(hdf_path_or_df, dburl):
-    from stream2segment.process import get_session
+def get_events_me(hdf_path_or_df, dburl):
     session = get_session(dburl)
     try:
-        yield from _get_report_rows(hdf_path_or_df, session)
+        yield from _get_events_me(hdf_path_or_df, session)
     finally:
         session.close()
 
 
-def _get_report_rows(hdf_path_or_df, db_session):
+def _get_events_me(station_me: pd.DataFrame, db_session):
     """Yield a series of dicts denoting a row of the report"""
-    from stream2segment.process import Event
-
     # see process.py:main for a list of columns:
-    dfr = hdf_path_or_df
-    if not isinstance(hdf_path_or_df, pd.DataFrame):
-        dfr: pd.DataFrame = pd.read_hdf(hdf_path_or_df)  # noqa
+    dfr = station_me
+    for ev_db_id, evt_df in dfr.groupby('event_db_id'):
 
-    for ev_db_id, df_ in dfr.groupby('event_db_id'):
+        me_values = np.asarray(evt_df['station_energy_magnitude'].values)
+        waveforms_count = np.sum(np.isfinite(me_values))
+        if not waveforms_count:
+            logger.warning(f'Event {ev_db_id} skipped: no finite Me value found')
+            continue
+        me, me_std, num_waveforms = Stats.Me_p.compute(me_values)
+        with pd.option_context('mode.use_inf_as_na', True):
+            if pd.isna(me):
+                logger.warning(f'Event {ev_db_id} skipped: Me is NaN '
+                               f'(e.g. not enough station Me available)')
+                continue
+
         event = db_session.query(Event).\
             options(load_only(Event.magnitude, Event.mag_type, Event.webservice_id,
                               Event.latitude, Event.longitude, Event.depth_km,
                               Event.time, Event.event_id)).\
             filter(Event.id == ev_db_id).one()
 
-        group_sta = df_.groupby(['network', 'station'])
-
-        # (Convention: keys with spaces will be replaced with '<br> in HTMl template)
-        event = {  # we are working in python 3.6.9+, order is preserved
+        group_sta = evt_df.groupby(['network', 'station'])
+        yield {  # we are working in python 3.6.9+, order is preserved
             'url': event.url,
             'magnitude': event.magnitude,
             'magnitude_type': event.mag_type,
-            'Me': np.nan,
-            'Me_stddev': np.nan,
-            'Me_waveforms_used': 0,
+            'Me': float(np.round(me, 2)),
+            'Me_stddev': float(np.round(me_std, 3)),
+            'Me_waveforms_used': int(num_waveforms),
             'latitude': float(np.round(event.latitude, 5)),
             'longitude': float(np.round(event.longitude, 5)),
             'depth_km': float(np.round(event.depth_km, 3)),
             'time': event.time.isoformat('T'),
             'stations': int(group_sta.ngroups),
-            'waveforms': 0,
+            'waveforms': int(waveforms_count),
             'id': str(event.event_id),
             'db_id': int(ev_db_id),  # noqa
         }
 
-        values = np.asarray(df_['station_energy_magnitude'].values)
 
-        waveforms_count = np.sum(np.isfinite(values))
-        if not waveforms_count:
-            continue
-        event['waveforms'] = int(waveforms_count)
-
-        # anomalyscores = np.asarray(df_['signal_amplitude_anomaly_score'].values)
-        me, me_std, num_waveforms = Stats.Me_p.compute(values)
-        with pd.option_context('mode.use_inf_as_na', True):
-            invalid_me = pd.isna(me)
-
-        event['Me'] = None if invalid_me else float(np.round(me, 2))
-        event['Me_stddev'] = None if invalid_me else float(np.round(me_std, 3))
-        event['Me_waveforms_used'] = int(num_waveforms)
-
-        # Stations residuals:
-        me_st_mean = Stats.Me_p.compute(values)[0]  # row['Me M']
+def get_html_report_rows(station_me: pd.DataFrame, events: dict):
+    # Stations residuals:
+    for ev_db_id, evt_df in station_me.groupby('event_db_id'):
+        group_sta = evt_df.groupby(['network', 'station'])
         stas = []
         for (net, sta), sta_df in group_sta:
             lat = np.round(sta_df['station_latitude'].iat[0], 3)
             lon = np.round(sta_df['station_longitude'].iat[0], 3)
             delta_me = None
+            me = events.get(ev_db_id, {}).get('Me', None)
+            if me is None:
+                continue
             station_me = sta_df['station_energy_magnitude'].iat[0]
-            if not invalid_me:
-                with pd.option_context('mode.use_inf_as_na', True):
-                    if not pd.isna(station_me):
-                        delta_me = station_me - me_st_mean
+            with pd.option_context('mode.use_inf_as_na', True):
+                if not pd.isna(station_me):
+                    delta_me = float(np.round(station_me - me, 2))
+
             # res = np.nan if invalid_me else \
             #     sta_df['station_energy_magnitude'].iat[0] - me_st_mean
             dist_deg = np.round(sta_df['station_event_distance_deg'].iat[0], 3)
@@ -138,8 +130,8 @@ def _get_report_rows(hdf_path_or_df, db_session):
                          delta_me,
                          dist_deg if np.isfinite(dist_deg) else None])
 
-        yield event, stas
-        # yield row
+        yield events[ev_db_id], stas
+    # yield row
 
 
 class Score2Weight:
