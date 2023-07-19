@@ -232,6 +232,7 @@ def main(segment, config):
     freq_dist_table = config['freq_dist_table']
     distances = freq_dist_table['distances']
 
+    # just in case (we should have filtered these segments already)
     # Note on SkipSegment: provide short messages to avoid heavy log files
     if distance_deg < distances[0] or distance_deg > distances[-1]:
         raise SkipSegment('event distance out of bound')

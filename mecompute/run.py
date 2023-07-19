@@ -208,7 +208,7 @@ def process(dconfig, start, end, dest_dir,
                        'or supply the force-overwrite flag is False')
         return False
 
-    if not isfile(station_me_file):
+    if not isfile(station_me_file) or force_overwrite:
 
         if p_config is None:
             p_config = PROCESS_CONFIG_PATH
@@ -219,7 +219,8 @@ def process(dconfig, start, end, dest_dir,
         segments_selection = {
             'event.time': '[%s, %s)' % (start, end),
             'has_valid_data': 'true',
-            'maxgap_numsamples': '(-0.5, 0.5)'
+            'maxgap_numsamples': '(-0.5, 0.5)',
+            'event_distance_deg': '[20, 97.5]'
         }
         try:
             _compute_station_me(station_me_file, dburl, segments_selection, p_config)
@@ -362,7 +363,7 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
                 append=False, writer_options=writer_options,
                 dburl=dburl, verbose=True,
                 config=p_config, logfile=logfile,
-                multi_process=True, chunksize=None)
+                multi_process=False, chunksize=None)
 
 
 def _write_quekeml(dest_file, event_url, me, me_u=None, me_stations=None,
