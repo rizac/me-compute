@@ -390,7 +390,7 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
                 append=False, writer_options=writer_options,
                 dburl=dburl, verbose=True,
                 config=p_config, logfile=logfile,
-                multi_process=False, chunksize=None)
+                multi_process=True, chunksize=None)
 
 
 def _write_quekeml(dest_file, event_url, me, me_u=None, me_stations=None,
