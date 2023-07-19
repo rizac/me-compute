@@ -17,7 +17,7 @@ from jinja2 import Template
 import logging
 
 from mecompute.stats import get_report_rows
-from stream2segment.process import imap
+from stream2segment.process import process as s2s_process
 from mecompute.process import main as main_function
 
 logger = logging.getLogger('me-compute')
@@ -147,7 +147,7 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
                       html_template=h_template)
     if ret:
         sys.exit(0)
-    print('WARNING: the program did not exit correctly, '
+    print('WARNING: the program did not complete successfully, '
           'please check log files for details',
           file=sys.stderr)
     sys.exit(1)
@@ -205,18 +205,19 @@ def process(dconfig, start, end, dest_dir,
 
     if not isfile(station_me_file) or force_overwrite:
 
+        if p_config is None:
+            p_config = PROCESS_CONFIG_PATH
+
         logger.info(f'Computing station energy magnitudes to file: '
                     f'{station_me_file}')
 
         segments_selection = {
-            'event.time': '(%s, %s]' % (start, end),
+            'event.time': '[%s, %s)' % (start, end),
             'has_valid_data': 'true',
             'maxgap_numsamples': '(-0.5, 0.5)'
         }
         try:
-            station_me_df = _compute_station_me(station_me_file, dburl,
-                                                segments_selection,
-                                                p_config)
+            _compute_station_me(station_me_file, dburl, segments_selection, p_config)
             # all next files might now be outdated so we need to force updating them:
             force_overwrite = True
         except Exception as exc:
@@ -225,10 +226,17 @@ def process(dconfig, start, end, dest_dir,
 
     else:
         logger.info(f'Fetching station energy magnitudes from {station_me_file}')
+
+    try:
         station_me_df = pd.read_hdf(station_me_file,
                                     usecols=_REQUIRED_STATIONS_COLUMNS)
+    except ValueError:
+        logger.warning('Unable to read station energy magnitudes file. '
+                       'This might be due to no Me computed (e.g., no segment, '
+                       'all Me NaN)')
+        return False
 
-    if station_me_df.empty:
+    if station_me_df.empty:  # noqa
         logger.warning('No station energy magnitude computed, check '
                        f'{basename(station_me_file)} log for details')
         return False
@@ -331,53 +339,25 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
     # set logfile:
     logfile = splitext(abspath(outfile))[0] + '.log'
 
-    # handle string columns:
-    # store each column possible values in a dict (handle str vs categorical at
-    # the end):
-    categorical_columns = {  # for
-        'network': {},
-        'station': {},
-        'location': {},
-        'channel': {},
-        # 'event_magnitude_type': {},
-        # 'event_url': {}
+    writer_options = {
+        'chunksize': 10000,
+        # hdf needs a fixed length for all columns: if you write string columns
+        # you need to tell in advance the size allocated with 'min_itemsize', e.g:
+        'min_itemsize': {
+            'network': 2,
+            'station': 5,
+            'location': 2,
+            'channel': 3,
+            # 'ev_mty': 2,
+        }
     }
 
-    if p_config is None:
-        p_config = PROCESS_CONFIG_PATH
-
-    # option to write str columns to dataframe:
-    min_itemsize = {}
-    processed_waveforms = []
-
-    for res_dict in imap(main_function,
-                         segments_selection=segments_selection,
-                         dburl=dburl, verbose=True,
-                         config=p_config, logfile=logfile,
-                         multi_process=True, chunksize=None):
-        for col in categorical_columns:
-            value = res_dict[col]
-            if value not in categorical_columns[col]:
-                categorical_columns[col][value] = len(categorical_columns[col])
-            res_dict[col] = categorical_columns[col][value]
-        processed_waveforms.append(res_dict)
-
-    if not processed_waveforms:
-        return pd.DataFrame()
-
-    dataframe = pd.DataFrame(processed_waveforms)
-    # handle str columns, convert them to str or categorical:
-    for col in categorical_columns:
-        dtype = 'str' if len(categorical_columns[col]) > len(dataframe) / 2 \
-            else 'category'
-        mapping = {v: k for k, v in categorical_columns[col].items()}
-        dataframe[col] = dataframe[col].map(mapping).astype(dtype)
-        if dtype == 'str':
-            min_itemsize[col] = max(len(v) for v in mapping.values())
-
-    dataframe.to_hdf(outfile, format='table', key='station_energy_magnitudes',
-                     min_itemsize=min_itemsize or None)
-    return dataframe[_REQUIRED_STATIONS_COLUMNS].copy()
+    s2s_process(main_function, outfile=outfile,
+                segments_selection=segments_selection,
+                append=False, writer_options=writer_options,
+                dburl=dburl, verbose=True,
+                config=p_config, logfile=logfile,
+                multi_process=False, chunksize=None)
 
 
 def _write_quekeml(dest_file, event_url, me, me_u=None, me_stations=None,
