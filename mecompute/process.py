@@ -228,6 +228,14 @@ def main(segment, config):
          https://pandas.pydata.org/pandas-docs/stable/user_guide/io.html#io-hdf5
 
     """
+    distance_deg = segment.event_distance_deg
+    freq_dist_table = config['freq_dist_table']
+    distances = freq_dist_table['distances']
+
+    # Note on SkipSegment: provide short messages to avoid heavy log files
+    if distance_deg < distances[0] or distance_deg > distances[-1]:
+        raise SkipSegment('event distance out of bound')
+
     # bandpass the trace, according to the event magnitude.
     # WARNING: this modifies the segment.stream() permanently!
     # If you want to preserve the original stream, store trace.copy()
@@ -236,7 +244,7 @@ def main(segment, config):
     try:
         trace = bandpass_remresp(segment, config)
     except Exception as exc:  # noqa
-        raise SkipSegment('error in bandpass_remresp: %s' % str(exc))
+        raise SkipSegment('%s in bandpass_remresp' % str(exc.__class__))
 
     spectra = signal_noise_spectra(segment, config)
     normal_f0, normal_df, normal_spe = spectra['Signal']
@@ -254,29 +262,13 @@ def main(segment, config):
                fmin=fcmin, fmax=fcmax, delta_signal=normal_df, delta_noise=noise_df)
     
     if snr_ < config['snr_threshold']:
-        # FIXME: we get here quite often, maybe just return None and skip logging?
-        raise SkipSegment('snr %f < %f' % (snr_, config['snr_threshold']))
+        raise SkipSegment('Low SNR')
 
     ##################
     # ME COMPUTATION #
     ##################
 
     normal_spe *= trace.stats.delta
-
-    duration = get_segment_window_duration(segment, config)
-
-    if duration == 60:
-        freq_min_index = 1  # 0.015625 (see frequencies in yaml)
-    else:
-        freq_min_index = 0  # 0.012402 (see frequencies in yaml)
-
-    freq_dist_table = config['freq_dist_table']
-    frequencies = freq_dist_table['frequencies'][freq_min_index:]
-    distances = freq_dist_table['distances']
-    try:
-        distances_table = freq_dist_table[duration]
-    except KeyError:
-        raise KeyError(f'no freq dist table implemented for {duration} seconds')
 
     # unnecessary asserts just used for testing (comment out):
     # assert sorted(distances) == distances
@@ -289,18 +281,23 @@ def main(segment, config):
     try:
         cs = CubicSpline(normal_freqs, normal_spe)
     except ValueError as verr:
-        raise SkipSegment('Error in CubicSpline: %s' % str(verr))
+        raise SkipSegment('ValueError in CubicSpline')
 
+    duration = get_segment_window_duration(segment, config)
+    if duration == 60:
+        freq_min_index = 1  # 0.015625 (see frequencies in yaml)
+    else:
+        freq_min_index = 0  # 0.012402 (see frequencies in yaml)
+    frequencies = freq_dist_table['frequencies'][freq_min_index:]
     seg_spectrum = cs(frequencies)
-
     seg_spectrum_log10 = np.log10(seg_spectrum)
 
-    distance_deg = segment.event_distance_deg
-    if distance_deg < distances[0] or distance_deg > distances[-1]:
-        raise SkipSegment('Passed `distance_deg`=%f not in [%f, %f]' %
-                         (distance_deg, distances[0], distances[-1]))
-
     distindex = np.searchsorted(distances, distance_deg)
+
+    try:
+        distances_table = freq_dist_table[duration]
+    except KeyError:
+        raise KeyError(f'no freq dist table implemented for {duration} seconds')
 
     if distances[distindex] == distance_deg:
         correction_spectrum_log10 = distances_table[distindex]
@@ -337,6 +334,9 @@ def main(segment, config):
     # below I put a factor 2 but ... we don't know yet if it is needed
     energy = 2 * (v_cost_p + v_cost_s) * corrected_spectrum_int_vel_square
     me_st = (2./3.) * (np.log10(energy) - 4.4)
+
+    if not np.isfinite(me_st):
+        raise SkipSegment('Me nan')
 
     # END OF ME COMPUTATION =============================================
 

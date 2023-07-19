@@ -180,9 +180,9 @@ def process(dconfig, start, end, dest_dir,
     # create output directory within destdir and assign new name:
 
     logger.setLevel(logging.INFO)
+    logfile = abspath(join(dest_dir, base_name + '.log'))
     file_handler = logging.FileHandler(mode='w+',
-                                       filename=abspath(join(dest_dir,
-                                                             base_name + '.log')))
+                                       filename=logfile)
     logger.addHandler(file_handler)
 
     # set outfile
@@ -203,7 +203,12 @@ def process(dconfig, start, end, dest_dir,
                      f'YAML')
         return False
 
-    if not isfile(station_me_file) or force_overwrite:
+    if isfile(station_me_file) and not force_overwrite:
+        logger.warning('station energy magnitudes: file already exists. Delete file'
+                       'or supply the force-overwrite flag is False')
+        return False
+
+    if not isfile(station_me_file):
 
         if p_config is None:
             p_config = PROCESS_CONFIG_PATH
@@ -357,7 +362,7 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
                 append=False, writer_options=writer_options,
                 dburl=dburl, verbose=True,
                 config=p_config, logfile=logfile,
-                multi_process=False, chunksize=None)
+                multi_process=True, chunksize=None)
 
 
 def _write_quekeml(dest_file, event_url, me, me_u=None, me_stations=None,
