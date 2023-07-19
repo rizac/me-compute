@@ -1,6 +1,3 @@
-from collections import OrderedDict
-from os.path import join, dirname
-
 import pandas as pd
 import numpy as np
 import math
@@ -131,7 +128,6 @@ def get_html_report_rows(station_me: pd.DataFrame, events: dict):
                          dist_deg if np.isfinite(dist_deg) else None])
 
         yield events[ev_db_id], stas
-    # yield row
 
 
 class Score2Weight:

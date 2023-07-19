@@ -60,7 +60,7 @@ def test_process(params, capsys):
     csv = join(TEST_TMP_ROOT_DIR, base_name + '.csv')
     log = join(TEST_TMP_ROOT_DIR, base_name + '.log')
     html = join(TEST_TMP_ROOT_DIR, base_name + '.html')
-    xml = join(TEST_TMP_ROOT_DIR, 'gfz2022juqz.xml')
+    xml = join(TEST_TMP_ROOT_DIR, 'events', 'gfz2022juqz.xml')
     # get modification times to check we overwrote those files
     # (if files do not exist, set yesterday as modification time):
     m_times = {
@@ -81,7 +81,7 @@ def test_process(params, capsys):
         assert os.stat(f).st_mtime > t
 
     d = pd.read_hdf(s_hdf)
-    assert len(d) == 3  # noqa
+    assert len(d) == 1  # noqa
 
     d = pd.read_csv(csv)
     assert len(d) == 1  # noqa

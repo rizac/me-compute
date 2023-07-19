@@ -307,7 +307,7 @@ def write_quakemls(events: dict, dest_dir):
             quakeml_file = join(dest_dir, ev_catalog_id + '.xml')
             _write_quekeml(quakeml_file, ev_catalog_url,
                            e_mag, e_mag_u, evt['Me_waveforms_used'],
-                           author_uri)
+                           author_uri, force_overwrite=True)
         except (OSError, HTTPError, HTTPException, URLError) as exc:
             logger.warning(f'Unable to create QuakeML for {ev_catalog_id}: {exc}')
 
