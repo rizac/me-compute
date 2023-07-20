@@ -24,8 +24,8 @@ logger = logging.getLogger('me-compute')
 
 _CONFIG_DIR = join(dirname(__file__), 'base-config')
 PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'process.yaml')
-REPORT_TEMPLATE_PATH = join(_CONFIG_DIR, 'report.template.html')
-SEGMENTS_SELECT = join(_CONFIG_DIR, 'segments_selection.yaml')
+REPORT_TEMPLATE_PATH = join(_CONFIG_DIR, 'report-template.html')
+SEGMENTS_SELECT = join(_CONFIG_DIR, 'segments-selection.yaml')
 assert isfile(PROCESS_CONFIG_PATH)
 assert isfile(REPORT_TEMPLATE_PATH)
 assert isfile(SEGMENTS_SELECT)
@@ -61,20 +61,24 @@ assert isfile(SEGMENTS_SELECT)
 @click.option('p_config', '-pc', type=click.Path(exists=True),
               default=None,
               help=f"The path of the configuration file used for processing the data. "
-                   f"If missing, the default configuration will be used (see the file "
-                   f"provided by default in the git repository for details: "
-                   f"me-compute/config/process.yaml)")
+                   f"If missing, the default configuration will be used "
+                   f"(me-compute/config/station_me.yaml)")
 @click.option('h_template', '-ht', type=click.Path(exists=True),
               default=None,
               help=f"The path of the HTML template file used to build the output "
                    f"report. This parameter is for users experienced with jina2 who "
                    f"need to customize the report appearance. If missing, "
-                   f"the default template will be used (see the file provided "
-                   f"by default in the git repository for details: "
-                   f"me-compute/config/report.template.html)")
+                   f"the default template will be used "
+                   f"(me-compute/config/report_template.html)")
+@click.option('segments_selection', '-sel', type=click.Path(exists=True),
+              default=None,
+              help=f"The path of the YAML file where the segments to process can be "
+                   f"filtered and selected via string expressions. If missing, "
+                   f"the default file will be used "
+                   f"(me-compute/config/segments_selection.html)")
 @click.argument('output_dir', required=True)
 def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template,
-        output_dir):
+        segments_selection, output_dir):
     """
     Computes the energy magnitude (Me) from a selection of events and waveforms
     previously downloaded with stream2segment and saved on a SQLite or Postgres database.
@@ -144,7 +148,7 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
         start, end = _get_timebounds(start, end, time_window)
         print(f'Computing Me for events within: [{start}, {end}]', file=sys.stderr)
         dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
-        ret = compute_me(d_config, start, end, dest_dir,
+        ret = compute_me(d_config, start, end, dest_dir, seg_sel=segments_selection,
                          force_overwrite=force_overwrite, p_config=p_config,
                          html_template=h_template)
     if ret:
@@ -161,7 +165,7 @@ _REQUIRED_STATIONS_COLUMNS = [
 ]
 
 
-def compute_me(dconfig, start, end, dest_dir, force_overwrite=False,
+def compute_me(dconfig, start, end, dest_dir, force_overwrite=False, seg_sel=None,
                p_config=None, html_template=None):
     """process downloaded events computing their energy magnitude (Me)"""
 
@@ -212,7 +216,9 @@ def compute_me(dconfig, start, end, dest_dir, force_overwrite=False,
         logger.info(f'Computing station energy magnitudes to file: '
                     f'{station_me_file}')
 
-        with open(SEGMENTS_SELECT) as _:
+        if seg_sel is None:
+            seg_sel = SEGMENTS_SELECTION
+        with open(seg_sel) as _:
             segments_selection = yaml.safe_load(_)
         segments_selection['event.time'] = '[%s, %s)' % (start, end)
 

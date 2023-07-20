@@ -36,7 +36,8 @@ except ImportError:
 
 def compute_station_me(segment, config):
     """Main processing function, called iteratively for any segment selected from `imap`
-    or `process` functions of stream2segment.
+    or `process` functions of stream2segment, and computing the station energy magnitude
+    (more precisely the energy magnitude at segment level)
 
     IMPORTANT: any exception raised here or from any sub-function will interrupt the
     whole processing routine with one special case: `stream2segment.process.SkipSegment`

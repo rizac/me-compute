@@ -1,9 +1,10 @@
-# ======================================================
-# Stream2segment configuration file / processing routine
-# ======================================================
+# =========================================================
+# Configuration file for computing station energy magnitude
+# =========================================================
 #
-# This is a configuration file for the stream2segment `imap` and `process` functions.
-# See associated Python module (generated via `s2s init`) for details
+# Configuration file for the `compute_station_me` function (see module `station_me`).
+# this file will be converted to a Python dict and made available as the function
+# `config` argument
 #
 # This file is written in YAML syntax. For info see: http://docs.ansible.com/ansible/latest/YAMLSyntax.html
 
