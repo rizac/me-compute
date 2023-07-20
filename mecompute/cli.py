@@ -135,17 +135,17 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
 
     me-compute -s 2016-01-02 -t 2 OUT_DIR
     """
-    ret = False
     if start is None and end is None and time_window is None:
         click.BadParameter('No time bounds specified. Please provide '
                            '-s, -e or -t').show()
-    else:
-        start, end = _get_timebounds(start, end, time_window)
-        print(f'Computing Me for events within: [{start}, {end}]', file=sys.stderr)
-        dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
-        ret = compute_me(d_config, start, end, dest_dir, seg_sel=segments_selection,
-                         force_overwrite=force_overwrite, p_config=p_config,
-                         html_template=h_template)
+        sys.exit(1)
+
+    start, end = _get_timebounds(start, end, time_window)
+    print(f'Computing Me for events within: [{start}, {end}]', file=sys.stderr)
+    dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
+    ret = compute_me(d_config, start, end, dest_dir, seg_sel=segments_selection,
+                     force_overwrite=force_overwrite, p_config=p_config,
+                     html_template=h_template)
     if ret:
         sys.exit(0)
     print('WARNING: the program did not complete successfully, '
