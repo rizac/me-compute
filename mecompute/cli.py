@@ -23,12 +23,12 @@ from mecompute.station_me import compute_station_me
 logger = logging.getLogger('me-compute')
 
 _CONFIG_DIR = join(dirname(__file__), 'base-config')
-PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'station_me.yaml')
-REPORT_TEMPLATE_PATH = join(_CONFIG_DIR, 'report_template.html')
-SEGMENTS_SELECTION = join(_CONFIG_DIR, 'segments_selection.yaml')
-assert isfile(PROCESS_CONFIG_PATH)
-assert isfile(REPORT_TEMPLATE_PATH)
-assert isfile(SEGMENTS_SELECTION)
+STATION_ME_CONFIG_PATH = join(_CONFIG_DIR, 'station_me.yaml')
+HTML_REPORT_TEMPLATE_PATH = join(_CONFIG_DIR, 'report_template.html')
+SEGMENTS_SELECTION_PATH = join(_CONFIG_DIR, 'segments_selection.yaml')
+assert isfile(STATION_ME_CONFIG_PATH)
+assert isfile(HTML_REPORT_TEMPLATE_PATH)
+assert isfile(SEGMENTS_SELECTION_PATH)
 
 
 #########################
@@ -39,8 +39,9 @@ assert isfile(SEGMENTS_SELECTION)
 @click.command(context_settings=dict(max_content_width=89),)
 @click.option('d_config', '-d', type=click.Path(exists=True),
               help=f"The path of the download configuration file used to download "
-                   f"the data. Used to get the URL of the database where events and "
-                   f"waveforms will be fetched (all other properties will be ignored)")
+                   f"the data with the `s2s` command. This file is used to get the URL "
+                   f"of the database where events and waveforms will be fetched (all "
+                   f"other properties will be ignored)")
 @click.option('start', '-s', type=click.DateTime(), default=None,
               help="the start time of the "
                    "db events to fetch (UTC ISO-formatted string). "
@@ -59,23 +60,26 @@ assert isfile(SEGMENTS_SELECTION)
                    'preserve existing files (outdated files, if found, will be '
                    'overwritten anyway')
 @click.option('p_config', '-pc', type=click.Path(exists=True),
-              default=None,
+              default=STATION_ME_CONFIG_PATH,
               help=f"The path of the configuration file used for processing the data. "
-                   f"If missing, the default configuration will be used "
-                   f"(me-compute/config/station_me.yaml)")
+                   f"If missing, the default configuration will be used (an editable, "
+                   f"ready for use copy of the default file should be "
+                   f"available in [repository_dir]/config/station_me.yaml)")
 @click.option('h_template', '-ht', type=click.Path(exists=True),
-              default=None,
+              default=HTML_REPORT_TEMPLATE_PATH,
               help=f"The path of the HTML template file used to build the output "
                    f"report. This parameter is for users experienced with jina2 who "
                    f"need to customize the report appearance. If missing, "
-                   f"the default template will be used "
-                   f"(me-compute/config/report_template.html)")
+                   f"the default template will be used (an editable, "
+                   f"ready for use copy of the default file should be "
+                   f"available in [repository_dir]/config/report_template.html)")
 @click.option('segments_selection', '-sel', type=click.Path(exists=True),
-              default=None,
+              default=SEGMENTS_SELECTION_PATH,
               help=f"The path of the YAML file where the segments to process can be "
                    f"filtered and selected via string expressions. If missing, "
-                   f"the default file will be used "
-                   f"(me-compute/config/segments_selection.html)")
+                   f"the default file will be used (an editable, "
+                   f"ready for use copy of the default file should be "
+                   f"available in [repository_dir]/config/segments_selection.html)")
 @click.argument('output_dir', required=True)
 def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template,
         segments_selection, output_dir):
@@ -100,50 +104,41 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
       (the vertical component `BHZ`) is downloaded (just consider this if you
       increase the station channels to download in `download.yaml`)
 
-
     - **energy-magnitude.csv** A tabular file where each row represents a seismic
       event, aggregating the result of the previous file into the final event energy
       magnitude. The event Me is the mean of all station energy magnitudes within
       the 5-95 percentiles. Empty or non-numeric Me values indicate that the energy
       magnitude could not be computed or resulted in invalid values (NaN, null, +-inf)
 
-
     - **energy-magnitude.html** A report that can be opened in the user browser to
       visualize the computed energy magnitudes on maps and HTML tables
 
-
-    - **[eventid1].xml, ..., [eventid1].xml** All processed events saved in QuakeMl
-      format, updated with the information of their energy magnitude. Only events
-      with valid Me will be saved
-
+    - **events/[eventid1].xml, ..., events/[eventid1].xml** All processed events saved
+      in QuakeML format, updated with the information of their energy magnitude. Only
+      events with valid Me will be saved
 
     - **energy-magnitude.log** the log file where the info, errors and warnings
       of the routine are stored. The core energy magnitude computation at station
       level (performed via `stream2segment` utilities) has a separated and more
       detailed log file (see below)
 
-
     - **station-energy-magnitude.log** the log file where the info, errors and
       warnings of the station energy magnitude computation have been stored
 
+    Examples:
 
-    Examples. In order to process all segments of the events occurred ...
+    Compute Me of all events occurred yesterday:
 
-    ... yesterday:
+    me-compute -t 1 OUT_DIR
 
-        me-compute OUT_DIR
+    Compute Me of all events occurred on January the 2nd and January the 3rd, 2016:
 
-    ... in the last 2 days:
-
-        me-compute -t 2 OUT_DIR
-
-    ... on January the 2nd and January the 3rd, 2016:
-
-        process -s 2016-01-02 -t 2 OUT_DIR
+    me-compute -s 2016-01-02 -t 2 OUT_DIR
     """
+    ret = False
     if start is None and end is None and time_window is None:
-        print('No time bounds specified. Please provide -s, -e or -t', file=sys.stderr)
-        ret = False
+        click.BadParameter('No time bounds specified. Please provide '
+                           '-s, -e or -t').show()
     else:
         start, end = _get_timebounds(start, end, time_window)
         print(f'Computing Me for events within: [{start}, {end}]', file=sys.stderr)
@@ -165,8 +160,8 @@ _REQUIRED_STATIONS_COLUMNS = [
 ]
 
 
-def compute_me(dconfig, start, end, dest_dir, force_overwrite=False, seg_sel=None,
-               p_config=None, html_template=None):
+def compute_me(dconfig, start, end, dest_dir, seg_sel,
+               p_config, html_template, force_overwrite=False):
     """process downloaded events computing their energy magnitude (Me)"""
 
     # # in case we want to query the db (e.g., min event, legacy code not used anymore):
@@ -210,14 +205,9 @@ def compute_me(dconfig, start, end, dest_dir, force_overwrite=False, seg_sel=Non
 
     if not isfile(station_me_file) or force_overwrite:
 
-        if p_config is None:
-            p_config = PROCESS_CONFIG_PATH
-
         logger.info(f'Computing station energy magnitudes to file: '
                     f'{station_me_file}')
 
-        if seg_sel is None:
-            seg_sel = SEGMENTS_SELECTION
         with open(seg_sel) as _:
             segments_selection = yaml.safe_load(_)
         segments_selection['event.time'] = '[%s, %s)' % (start, end)
@@ -318,10 +308,8 @@ def write_quakemls(events: dict, dest_dir):
 
 
 def write_html_report(station_me_df: pd.DataFrame, events: dict,
-                      html_template, html_fpath):
-    if html_template is None:
-        html_template = REPORT_TEMPLATE_PATH
-    with open(html_template) as _:
+                      html_template_path, html_fpath):
+    with open(html_template_path) as _:
         template = Template(_.read())
     title = splitext(basename(html_fpath))[0]
     html_evts = {}
@@ -367,7 +355,7 @@ def _isoformat(time):
     return time.isoformat(sep='T')
 
 
-def compute_stations_me(outfile, dburl, segments_selection, p_config=None):
+def compute_stations_me(outfile, dburl, segments_selection, p_config):
 
     # set logfile:
     logfile = splitext(abspath(outfile))[0] + '.log'
