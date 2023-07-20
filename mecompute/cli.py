@@ -23,12 +23,12 @@ from mecompute.station_me import compute_station_me
 logger = logging.getLogger('me-compute')
 
 _CONFIG_DIR = join(dirname(__file__), 'base-config')
-PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'process.yaml')
-REPORT_TEMPLATE_PATH = join(_CONFIG_DIR, 'report-template.html')
-SEGMENTS_SELECT = join(_CONFIG_DIR, 'segments-selection.yaml')
+PROCESS_CONFIG_PATH = join(_CONFIG_DIR, 'station_me.yaml')
+REPORT_TEMPLATE_PATH = join(_CONFIG_DIR, 'report_template.html')
+SEGMENTS_SELECTION = join(_CONFIG_DIR, 'segments_selection.yaml')
 assert isfile(PROCESS_CONFIG_PATH)
 assert isfile(REPORT_TEMPLATE_PATH)
-assert isfile(SEGMENTS_SELECT)
+assert isfile(SEGMENTS_SELECTION)
 
 
 #########################
@@ -315,11 +315,6 @@ def write_quakemls(events: dict, dest_dir):
                            author_uri, force_overwrite=True)
         except (OSError, HTTPError, HTTPException, URLError) as exc:
             logger.warning(f'Unable to create QuakeML for {ev_catalog_id}: {exc}')
-
-    # if not ev_headers:
-    #     logger.warning(f'No Me computed (No QuakeML saved). Possible cause: '
-    #                    f'station energy magnitudes all missing/NaN. Inspect station '
-    #                    f'magnitudes file for details')
 
 
 def write_html_report(station_me_df: pd.DataFrame, events: dict,
