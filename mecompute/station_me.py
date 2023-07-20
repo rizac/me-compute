@@ -34,7 +34,7 @@ except ImportError:
     trace_score = lambda *a, **w: np.nan
 
 
-def main(segment, config):
+def compute_station_me(segment, config):
     """Main processing function, called iteratively for any segment selected from `imap`
     or `process` functions of stream2segment.
 

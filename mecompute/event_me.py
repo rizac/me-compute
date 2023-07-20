@@ -11,8 +11,8 @@ from stream2segment.process import Event, get_session
 logger = logging.getLogger('me-compute.event_me')
 
 pct = (5, 95)  # percentiles
-score_th = 0.75  # anomaly score thresold
-ROUND = 2  # round to be used in mean and stdev. Set to None for no rounding
+score_th = 0.75  # anomaly score threshold
+ROUND = 2  # round to be used in mean and stddev. Set to None for no rounding
 
 
 class Stats(Enum):
@@ -50,15 +50,15 @@ class Stats(Enum):
         return avg_std_count(values, weights, round=ROUND)
 
 
-def get_events_me(hdf_path_or_df, dburl):
+def compute_events_me(hdf_path_or_df, dburl):
     session = get_session(dburl)
     try:
-        yield from _get_events_me(hdf_path_or_df, session)
+        yield from _compute_events_me(hdf_path_or_df, session)
     finally:
         session.close()
 
 
-def _get_events_me(station_me: pd.DataFrame, db_session):
+def _compute_events_me(station_me: pd.DataFrame, db_session):
     """Yield a series of dicts denoting a row of the report"""
     # see process.py:main for a list of columns:
     dfr = station_me

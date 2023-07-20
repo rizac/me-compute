@@ -1,6 +1,6 @@
 """
-Command line interface (cli) of the program, type `python cli.py --help` for details
-on the terminal
+Command line interface (cli) of the program, type `me-compute --help` on the terminal
+(if you did not install the package, `python3 cli.py --help`)
 """
 import os
 import sys
@@ -16,9 +16,9 @@ import yaml
 from jinja2 import Template
 import logging
 
-from mecompute.event_me import get_events_me, get_html_report_rows
+from mecompute.event_me import compute_events_me, get_html_report_rows
 from stream2segment.process import process as s2s_process
-from mecompute.station_me import main as main_function
+from mecompute.station_me import compute_station_me
 
 logger = logging.getLogger('me-compute')
 
@@ -144,9 +144,9 @@ def cli(d_config, start, end, time_window, force_overwrite, p_config, h_template
         start, end = _get_timebounds(start, end, time_window)
         print(f'Computing Me for events within: [{start}, {end}]', file=sys.stderr)
         dest_dir = output_dir.replace("%S%", start).replace("%E%", end)
-        ret = process(d_config, start, end, dest_dir,
-                      force_overwrite=force_overwrite, p_config=p_config,
-                      html_template=h_template)
+        ret = compute_me(d_config, start, end, dest_dir,
+                         force_overwrite=force_overwrite, p_config=p_config,
+                         html_template=h_template)
     if ret:
         sys.exit(0)
     print('WARNING: the program did not complete successfully, '
@@ -161,9 +161,8 @@ _REQUIRED_STATIONS_COLUMNS = [
 ]
 
 
-def process(dconfig, start, end, dest_dir,
-            force_overwrite=False,
-            p_config=None, html_template=None):
+def compute_me(dconfig, start, end, dest_dir, force_overwrite=False,
+               p_config=None, html_template=None):
     """process downloaded events computing their energy magnitude (Me)"""
 
     # # in case we want to query the db (e.g., min event, legacy code not used anymore):
@@ -218,7 +217,7 @@ def process(dconfig, start, end, dest_dir,
         segments_selection['event.time'] = '[%s, %s)' % (start, end)
 
         try:
-            _compute_station_me(station_me_file, dburl, segments_selection, p_config)
+            compute_stations_me(station_me_file, dburl, segments_selection, p_config)
             # all next files might now be outdated so we need to force updating them:
             force_overwrite = True
         except Exception as exc:
@@ -255,7 +254,7 @@ def process(dconfig, start, end, dest_dir,
         logger.error(f'Error reading {csv_path}: {str(exc)}')
         return False
     # convert events to dict:
-    events = {evt['db_id'] : evt for evt in me_df.to_dict(orient="records")}
+    events = {evt['db_id']: evt for evt in me_df.to_dict(orient="records")}
     # keep data only for relevant events:
     station_me_df = \
         station_me_df.loc[station_me_df['event_db_id'].isin(events.keys()), :].copy()
@@ -286,7 +285,7 @@ def process(dconfig, start, end, dest_dir,
 def write_events_me_csv(station_me_df: pd.DataFrame, dburl, csv_path):
     events = {}
     with open(csv_path, 'w', newline='') as _:
-        for evt in get_events_me(station_me_df, dburl):
+        for evt in compute_events_me(station_me_df, dburl):
             if not events:
                 ev_headers = list(evt.keys())
                 logger.info(f'Saving event energy magnitudes to: {csv_path}')
@@ -367,7 +366,7 @@ def _isoformat(time):
     return time.isoformat(sep='T')
 
 
-def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
+def compute_stations_me(outfile, dburl, segments_selection, p_config=None):
 
     # set logfile:
     logfile = splitext(abspath(outfile))[0] + '.log'
@@ -385,7 +384,7 @@ def _compute_station_me(outfile, dburl, segments_selection, p_config=None):
         }
     }
 
-    s2s_process(main_function, outfile=outfile,
+    s2s_process(compute_station_me, outfile=outfile,
                 segments_selection=segments_selection,
                 append=False, writer_options=writer_options,
                 dburl=dburl, verbose=True,

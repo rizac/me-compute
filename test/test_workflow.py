@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from click.testing import CliRunner
 
-from mecompute.run import cli
+from mecompute.cli import cli
 from mecompute.event_me import ParabolicScore2Weight, LinearScore2Weight
 from unittest.mock import patch
 
@@ -19,30 +19,30 @@ TEST_DB_FILE_PATH = join(TEST_DATA_DIR, 'db.sqlite')
 TEST_TMP_ROOT_DIR = abspath(join(TEST_DATA_DIR, 'tmp'))
 
 
-@patch('mecompute.run.process')
-def test_proc_ess_params(mock_process, capsys):
+@patch('mecompute.cli.compute_me')
+def test_proc_ess_params(mock_compute_me, capsys):
     runner = CliRunner()
     now = datetime.utcnow().replace(microsecond=0,hour=0, minute=0, second=0)
     days = 365
     result = runner.invoke(cli, ['-f',
                                  '-d', TEST_DOWNLOAD_CONFIG_PATH, '-t', str(days),
                                  TEST_TMP_ROOT_DIR])
-    assert mock_process.called
-    start, end = mock_process.call_args[0][1], mock_process.call_args[0][2]
+    assert mock_compute_me.called
+    start, end = mock_compute_me.call_args[0][1], mock_compute_me.call_args[0][2]
     assert now == datetime.fromisoformat(end)
     assert datetime.fromisoformat(end) - datetime.fromisoformat(start) == \
            timedelta(days=days)
 
 
-@patch('mecompute.run.process')
-def test_proc_no_time_bounds(mock_process, capsys):
+@patch('mecompute.cli.compute_me')
+def test_proc_no_time_bounds(mock_compute_me, capsys):
     runner = CliRunner()
     now = datetime.utcnow().replace(microsecond=0,hour=0, minute=0, second=0)
     days = 365
     result = runner.invoke(cli, ['-f',
                                  '-d', TEST_DOWNLOAD_CONFIG_PATH,
                                  TEST_TMP_ROOT_DIR])
-    assert not mock_process.called
+    assert not mock_compute_me.called
     assert 'no time bounds specified' in result.output.lower()
     assert result.exit_code != 0
 
