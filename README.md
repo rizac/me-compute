@@ -15,6 +15,9 @@ in several formats: CSV, HDF, HTML and QuakeMl (see Usage below for details).
 The download + processing routines can be chained and scheduled on a server to compute
 the energy magnitude in semi-realtime (e.g. daily or weekly. See instructions below)
 
+**Citation**
+
+> Zaccarelli, Riccardo (2023): me-compute: a Python software to download events and data from FDSN web services and compute their energy magnitude (Me). GFZ Data Services. https://doi.org/10.5880/GFZ.2.6.2023.008
 
 ## Installation:
 Make virtualenv `python3 -m venv [PYPATH]` and activate it:
