@@ -1,4 +1,8 @@
-# me-compute
+# <img align="left" height="30" src="https://www.gfz-potsdam.de/fileadmin/gfz/medien_kommunikation/Infothek/Mediathek/Bilder/GFZ/GFZ_Logo/GFZ-Logo_eng_RGB.svg"> Me-compute <img align="right" height="50" src="https://www.gfz-potsdam.de/fileadmin/gfz/GFZ_Wortmarke_SVG_klein_en_edit.svg">
+
+|Jump to: | [Installation](#installation) | [Usage](#usage) | [Citation](#citation) |
+| - | - | - | - |
+
 
 
 Program to compute energy Magnitude (Me) from downloaded seismic events. 
@@ -15,11 +19,8 @@ in several formats: CSV, HDF, HTML and QuakeMl (see Usage below for details).
 The download + processing routines can be chained and scheduled on a server to compute
 the energy magnitude in semi-realtime (e.g. daily or weekly. See instructions below)
 
-**Citation**
 
-> Zaccarelli, Riccardo (2023): me-compute: a Python software to download events and data from FDSN web services and compute their energy magnitude (Me). GFZ Data Services. https://doi.org/10.5880/GFZ.2.6.2023.008
-
-## Installation:
+## Installation
 Make virtualenv `python3 -m venv [PYPATH]` and activate it:
 `source [PYPATH]/bin/activate`. 
 
@@ -54,7 +55,7 @@ Install the program: From the directory where you cloned `mecompute`:
    me-compute --help
    ```
 
-## Usage:
+## Usage
 
 First of all, you should configure your download routine. The repository contains 
 a `config` directory (git-ignored), with several configuration files that you can copy and modify.
@@ -173,3 +174,8 @@ Note that there is only one test routine generating files in a `test/tmp` direct
 (git-ignored). The directory is **not** deleted automatically in order to leave 
 developers the ability to perform an additional visual test on the generated output 
 (e.g. HTML report)
+
+
+## Citation
+
+> Zaccarelli, Riccardo (2023): me-compute: a Python software to download events and data from FDSN web services and compute their energy magnitude (Me). GFZ Data Services. https://doi.org/10.5880/GFZ.2.6.2023.008
